@@ -15,20 +15,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Android SDK
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y wget unzip
-          wget https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip
-          mkdir -p $HOME/Android/cmdline-tools
-          unzip -q commandlinetools-linux-8512546_latest.zip -d $HOME/Android/cmdline-tools
-          mv $HOME/Android/cmdline-tools/cmdline-tools $HOME/Android/cmdline-tools/latest
-          export ANDROID_HOME=$HOME/Android/Sdk
-          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
-          yes | sdkmanager --licenses
-          sdkmanager --update
-          sdkmanager "build-tools;34.0.0" "platforms;android-34" "platform-tools" "cmdline-tools;latest"
+      - name: Set up JDK 17
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
-      - name: Build with Gradle
+      # Run Build Project
+      - name: Build gradle project
         run: ./gradlew build
           
