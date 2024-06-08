@@ -13,9 +13,18 @@
 
     <fragment
         android:id="@+id/nav_gallery"
-        android:name="com.example.expensiarmus.ui.gallery.GalleryFragment"
-        android:label="@string/menu_gallery"
-        tools:layout="@layout/fragment_gallery" />
+        android:name="com.example.expensiarmus.ui.group.GroupFragment"
+        android:label="@string/menu_group"
+        tools:layout="@layout/fragment_group" >
+        <action
+            android:id="@+id/action_groupFragment_to_groupDetailFragment"
+            app:destination="@id/detailFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/detailFragment"
+        android:name="com.example.expensiarmus.ui.groupDetail.GroupDetailFragment"
+        tools:layout="@layout/fragment_detail" />
 
     <fragment
         android:id="@+id/nav_slideshow"
