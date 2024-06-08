@@ -25,10 +25,4 @@
         android:id="@+id/detailFragment"
         android:name="com.example.expensiarmus.ui.groupDetail.GroupDetailFragment"
         tools:layout="@layout/fragment_detail" />
-
-    <fragment
-        android:id="@+id/nav_slideshow"
-        android:name="com.example.expensiarmus.ui.slideshow.SlideshowFragment"
-        android:label="@string/menu_slideshow"
-        tools:layout="@layout/fragment_slideshow" />
 </navigation>
