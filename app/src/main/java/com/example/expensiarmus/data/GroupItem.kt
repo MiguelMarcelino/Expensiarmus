@@ -1,13 +1,21 @@
 package com.example.expensiarmus.data
 
+import com.google.firebase.Timestamp
+
 data class GroupItem(
-    val id: Long,
+    val uid: String,
     val name: String,
-    val description: String,
-    val expenses: MutableList<ExpenseItem> = mutableListOf()
+    val description: String?,
+    val ownerUid: String,
+    val createdAt: Timestamp,
+    val updatedAt: Timestamp
 ) {
-    // Function to add an expense to the group
-    fun addExpense(expense: ExpenseItem) {
-        expenses.add(expense)
-    }
+    constructor(name: String, description: String?, ownerUid: String) : this(
+        uid = "",
+        name = name,
+        description = description,
+        ownerUid = ownerUid,
+        createdAt = Timestamp.now(),
+        updatedAt = Timestamp.now()
+    )
 }
