@@ -12,9 +12,6 @@ import com.example.expensiarmus.databinding.FragmentHomeBinding
 class HomeFragment : Fragment() {
 
     private var _binding: FragmentHomeBinding? = null
-
-    // This property is only valid between onCreateView and
-    // onDestroyView.
     private val binding get() = _binding!!
 
     override fun onCreateView(
@@ -22,19 +19,23 @@ class HomeFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        // Create me a list view to show on this fragment
-        val homeViewModel =
-            ViewModelProvider(this).get(HomeViewModel::class.java)
-
-        // Inflate the layout for this fragment
         _binding = FragmentHomeBinding.inflate(inflater, container, false)
         val root: View = binding.root
 
-        // Create a text view to show on this fragment
+        val homeViewModel =
+            ViewModelProvider(this)[HomeViewModel::class.java]
+
         val textView: TextView = binding.textHome
-        homeViewModel.text.observe(viewLifecycleOwner) {
-            textView.text = it
+
+        // Observe the expenseOverview LiveData
+        homeViewModel.expenseOverview.observe(viewLifecycleOwner) {
+            // Update the TextView with the expense overview
+
+            val displayText =
+                homeViewModel.user.userName + '\n' + homeViewModel.user.email + '\n' + "Balance:" + '\n' + it
+            textView.text = displayText
         }
+
         return root
     }
 
