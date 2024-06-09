@@ -48,39 +48,6 @@ class MainActivity : AppCompatActivity() {
 
         // Initialize Firebase
         FirebaseApp.initializeApp(this)
-
-        // Test Firebase
-        val db = FirebaseFirestore.getInstance()
-
-        /**
-        val user = hashMapOf(
-        "first" to "Ada",
-        "last" to "Lovelace",
-        "born" to 1815
-        )
-
-        Log.d(TAG, "Created User is $user")
-
-        db.collection("users")
-        .add(user)
-        .addOnSuccessListener { documentReference ->
-        Log.d(TAG, "DocumentSnapshot added with ID: ${documentReference.id}")
-        }
-        .addOnFailureListener { e ->
-        Log.w(TAG, "Error adding document", e)
-        }
-
-        db.collection("users")
-        .get()
-        .addOnSuccessListener { result ->
-        for (document in result) {
-        Log.d(TAG, "${document.id} => ${document.data}")
-        }
-        }
-        .addOnFailureListener { exception ->
-        Log.w(TAG, "Error getting documents.", exception)
-        }
-         **/
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {

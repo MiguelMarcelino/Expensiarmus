@@ -3,13 +3,13 @@ package com.example.expensiarmus.dbconnector
 import android.content.ContentValues.TAG
 import android.util.Log
 import com.example.expensiarmus.data.ExpenseItem
+import com.example.expensiarmus.data.identifiers.ExpenseIdentifier
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 
 class ExpenseConnector {
 
     fun addExpense(
-        id: Long,
         amount: Double,
         description: String?,
         currency: String,
@@ -22,20 +22,18 @@ class ExpenseConnector {
 
         // Create a new expense object
         val expense = ExpenseItem(
-            id = id,
             amount = amount,
             description = description,
             currency = currency,
             status = status,
             tags = tags,
             ownerId = ownerId,
-            groupId = groupId,
-            createdAt = Timestamp.now()  // Use current timestamp
+            groupId = groupId
         )
 
         // Add a new document with a generated ID
         db.collection("expenses")
-            .document(id.toString())  // Use id as the document ID
+            .document(expense.uid)  // Use id as the document ID
             .set(expense)
             .addOnSuccessListener {
                 Log.d(TAG, "Expense added successfully")
@@ -46,7 +44,7 @@ class ExpenseConnector {
     }
 
     fun updateExpense(
-        id: Int,
+        expenseIdentifier: ExpenseIdentifier,
         amount: Double? = null,
         description: String? = null,
         currency: String? = null,
@@ -70,25 +68,24 @@ class ExpenseConnector {
 
         // Update the document
         db.collection("expenses")
-            .document(id.toString())
+            .document(expenseIdentifier.uid)
             .update(updates)
             .addOnSuccessListener {
                 Log.d(TAG, "Expense updated successfully")
             }
             .addOnFailureListener { e ->
-                Log.w(TAG, "Error updating expense", e)
+                Log.e(TAG, "Error updating expense", e)
             }
     }
 
     fun deleteExpense(
-        id: Long
+        expenseIdentifier: ExpenseIdentifier
     ) {
-
         val db = FirebaseFirestore.getInstance()
 
         // Delete the document with the specified ID
         db.collection("expenses")
-            .document(id.toString())
+            .document(expenseIdentifier.uid)
             .delete()
             .addOnSuccessListener {
                 Log.d(TAG, "Expense deleted successfully")
