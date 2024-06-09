@@ -4,10 +4,9 @@ import android.content.ContentValues.TAG
 import android.util.Log
 import com.example.expensiarmus.data.ExpenseItem
 import com.example.expensiarmus.data.identifiers.ExpenseIdentifier
-import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 
-class ExpenseConnector {
+object ExpenseConnector {
 
     fun addExpense(
         amount: Double,

@@ -5,7 +5,7 @@ import android.util.Log
 import com.example.expensiarmus.data.identifiers.UserIdentifier
 import com.google.firebase.firestore.FirebaseFirestore
 
-class UserExpenseConnector {
+object UserExpenseConnector {
 
     fun getExpenseForUser(userIdentifier: UserIdentifier) {
         // Get all expenses for a user

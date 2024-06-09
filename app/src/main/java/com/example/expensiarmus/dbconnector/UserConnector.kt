@@ -5,7 +5,7 @@ import android.util.Log
 import com.example.expensiarmus.data.identifiers.UserIdentifier
 import com.google.firebase.firestore.FirebaseFirestore
 
-class UserConnector {
+object UserConnector {
 
     fun updateUser(
         userIdentifier: UserIdentifier,
