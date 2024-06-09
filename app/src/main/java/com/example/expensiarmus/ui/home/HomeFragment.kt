@@ -22,20 +22,6 @@ class HomeFragment : Fragment() {
         _binding = FragmentHomeBinding.inflate(inflater, container, false)
         val root: View = binding.root
 
-        val homeViewModel =
-            ViewModelProvider(this)[HomeViewModel::class.java]
-
-        val textView: TextView = binding.textHome
-
-        // Observe the expenseOverview LiveData
-        homeViewModel.expenseOverview.observe(viewLifecycleOwner) {
-            // Update the TextView with the expense overview
-
-            val displayText =
-                homeViewModel.user.userName + '\n' + homeViewModel.user.email + '\n' + "Balance:" + '\n' + it
-            textView.text = displayText
-        }
-
         return root
     }
 

@@ -33,9 +33,9 @@ class GroupFragment : Fragment() {
 
         // TODO: Replace with your data. Make call to Firebase
         val items = listOf(
-            GroupItem(1, "Item 1", "Description 1"),
-            GroupItem(2, "Item 2", "Description 2"),
-            GroupItem(3, "Item 3", "Description 3")
+            GroupItem("1", "Item 1", "Description 1"),
+            GroupItem("2", "Item 2", "Description 2"),
+            GroupItem("3", "Item 3", "Description 3")
         )
         val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, items.map { it.name })
         listView.adapter = adapter
@@ -43,7 +43,7 @@ class GroupFragment : Fragment() {
         listView.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, _ ->
             val selectedItem = items[position]
             val bundle = Bundle().apply {
-                putInt("id", selectedItem.id.toInt())
+                putString("id", selectedItem.uid)
                 putString("name", selectedItem.name)
                 putString("description", selectedItem.description)
             }

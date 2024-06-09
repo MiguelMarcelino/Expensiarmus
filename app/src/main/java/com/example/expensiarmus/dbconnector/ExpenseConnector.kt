@@ -15,8 +15,8 @@ class ExpenseConnector {
         currency: String,
         status: String,
         tags: String,
-        ownerId: Long,
-        groupId: Long
+        ownerId: String,
+        groupId: String
     ) {
         val db = FirebaseFirestore.getInstance()
 

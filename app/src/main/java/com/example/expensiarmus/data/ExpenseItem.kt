@@ -9,8 +9,8 @@ data class ExpenseItem(
     var currency: String,
     var status: String,
     var tags: String,
-    var ownerId: Long,
-    var groupId: Long,
+    var ownerUid: String,
+    var groupUid: String,
     var createdAt: Timestamp
 ) {
     constructor(
@@ -19,8 +19,8 @@ data class ExpenseItem(
         currency: String,
         status: String,
         tags: String,
-        ownerId: Long,
-        groupId: Long
+        ownerId: String,
+        groupId: String
     ): this(
         uid = "",
         amount = amount,
@@ -28,8 +28,8 @@ data class ExpenseItem(
         currency = currency,
         status = status,
         tags = tags,
-        ownerId = ownerId,
-        groupId = groupId,
+        ownerUid = ownerId,
+        groupUid = groupId,
         createdAt = Timestamp.now()
     )
 }
