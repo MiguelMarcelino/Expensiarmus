@@ -1,3 +1,21 @@
 package com.example.expensiarmus.data
 
-data class GroupItem(val id: Long, val name: String, val description: String)
+import com.google.firebase.Timestamp
+
+data class GroupItem(
+    val uid: String,
+    val name: String,
+    val description: String?,
+    val ownerUid: String,
+    val createdAt: Timestamp,
+    val updatedAt: Timestamp
+) {
+    constructor(name: String, description: String?, ownerUid: String) : this(
+        uid = "",
+        name = name,
+        description = description,
+        ownerUid = ownerUid,
+        createdAt = Timestamp.now(),
+        updatedAt = Timestamp.now()
+    )
+}

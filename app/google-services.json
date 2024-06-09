@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "793908367016",
+    "project_id": "expensiarmus",
+    "storage_bucket": "expensiarmus.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:793908367016:android:29fde84bc1317eebbb3c9d",
+        "android_client_info": {
+          "package_name": "com.example.expensiarmus"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCPI6Mf0798JZkVKF-nKJsBGZ1QTWVFLC8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
