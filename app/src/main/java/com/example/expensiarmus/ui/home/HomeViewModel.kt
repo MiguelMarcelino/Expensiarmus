@@ -11,8 +11,18 @@ class HomeViewModel : ViewModel() {
 
     // Sample data for expenses and groups (replace with actual data source)
     // TODO: Replace with your data. Make call to Firebase
-    val user = User(id = 123.0, userName = "Dummy User", email = "dummy.user@somnus.com")
-    val user2 = User(id = 456.0, userName = "Dummy User 2", email = "dummy2.user@somnus.com")
+    val user = User(
+        userName = "dummyUser1",
+        email = "dummy.user@somnus.com",
+        fullName = "Joe Mama",
+        gender = "other"
+    )
+    val user2 = User(
+        userName = "Dummy User 2",
+        email = "dummy2.user@somnus.com",
+        fullName = "Joe Papa",
+        gender = "other"
+    )
     private val sampleExpenses = listOf(
         ExpenseItem(
             "Expense 1",
