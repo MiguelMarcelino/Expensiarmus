@@ -13,7 +13,6 @@ import com.example.expensiarmus.databinding.ActivityMainBinding
 import com.google.android.material.navigation.NavigationView
 import com.google.android.material.snackbar.Snackbar
 import com.google.firebase.FirebaseApp
-import com.google.firebase.firestore.FirebaseFirestore
 
 class MainActivity : AppCompatActivity() {
 
@@ -48,6 +47,7 @@ class MainActivity : AppCompatActivity() {
 
         // Initialize Firebase
         FirebaseApp.initializeApp(this)
+        FirebaseImportTest().test()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {

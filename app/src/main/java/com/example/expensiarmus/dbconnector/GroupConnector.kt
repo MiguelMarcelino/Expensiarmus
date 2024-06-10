@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.tasks.await
+import java.util.UUID
 
 object GroupConnector {
 
@@ -43,10 +44,12 @@ object GroupConnector {
 
         // Create a new group object
         val group = GroupItem(
+            uid = UUID.randomUUID().toString(), // Generate uid for new GroupItem
             name = name,
             description = description,
             ownerUid = ownerIdentifier.uid
         )
+
 
         // Add a new document with a generated ID
         db.collection("groups")
