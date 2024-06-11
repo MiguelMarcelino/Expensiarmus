@@ -12,7 +12,7 @@
         tools:layout="@layout/fragment_home" />
 
     <fragment
-        android:id="@+id/nav_gallery"
+        android:id="@+id/nav_group"
         android:name="com.example.expensiarmus.ui.group.GroupFragment"
         android:label="@string/menu_group"
         tools:layout="@layout/fragment_group" >
