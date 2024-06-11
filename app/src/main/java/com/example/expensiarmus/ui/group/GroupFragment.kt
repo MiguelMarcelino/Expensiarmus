@@ -31,7 +31,8 @@ class GroupFragment : Fragment() {
 
         val listView: ListView = binding.listView
 
-        val groupItems = GroupConnector.getGroups()
+        val groupConnector = GroupConnector()
+        val groupItems = groupConnector.getItems()
         val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, groupItems.map { it.name })
         listView.adapter = adapter
 

@@ -1,6 +1,7 @@
 package com.example.expensiarmus.data
 
 import com.google.firebase.Timestamp
+import java.util.UUID
 
 data class ExpenseItem(
     var uid: String,
@@ -13,6 +14,18 @@ data class ExpenseItem(
     var groupUid: String,
     var createdAt: Timestamp
 ) {
+    constructor() : this(
+        uid = UUID.randomUUID().toString(),
+        amount = 0.0,
+        description = "",
+        currency = "",
+        status = "",
+        tags = "",
+        ownerUid = "",
+        groupUid = "",
+        createdAt = Timestamp.now()
+    )
+
     constructor(
         amount: Double,
         description: String?,
@@ -22,7 +35,7 @@ data class ExpenseItem(
         ownerId: String,
         groupId: String
     ) : this(
-        uid = "",
+        uid = UUID.randomUUID().toString(),
         amount = amount,
         description = description,
         currency = currency,

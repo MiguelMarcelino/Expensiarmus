@@ -3,7 +3,9 @@ package com.example.expensiarmus.dbconnector
 import android.content.ContentValues
 import android.util.Log
 import com.example.expensiarmus.data.GroupItem
+import com.example.expensiarmus.data.identifiers.ExpenseIdentifier
 import com.example.expensiarmus.data.identifiers.GroupIdentifier
+import com.example.expensiarmus.data.identifiers.IIdentifier
 import com.example.expensiarmus.data.identifiers.UserIdentifier
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CompletableDeferred
@@ -14,9 +16,9 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
 
-object GroupConnector {
+class GroupConnector : Connector<GroupItem> {
 
-    fun getGroups(): List<GroupItem> {
+    override fun getItems(): List<GroupItem> {
         val db = FirebaseFirestore.getInstance()
         val deferred = CompletableDeferred<List<GroupItem>>()
 
@@ -35,19 +37,15 @@ object GroupConnector {
         return runBlocking { deferred.await() }
     }
 
-    fun createGroup(
-        name: String,
-        description: String?,
-        ownerIdentifier: UserIdentifier
-    ) {
+    override fun addItem(groupItem: GroupItem) {
         val db = FirebaseFirestore.getInstance()
 
         // Create a new group object
         val group = GroupItem(
             uid = UUID.randomUUID().toString(), // Generate uid for new GroupItem
-            name = name,
-            description = description,
-            ownerUid = ownerIdentifier.uid
+            name = groupItem.name,
+            description = groupItem.description,
+            ownerUid = groupItem.ownerUid
         )
 
 
@@ -63,23 +61,18 @@ object GroupConnector {
             }
     }
 
-    fun updateGroup(
-        groupIdentifier: GroupIdentifier,
-        name: String? = null,
-        description: String? = null,
-        ownerIdentifier: UserIdentifier? = null
-    ) {
+    override fun updateItem(groupItem: GroupItem) {
         val db = FirebaseFirestore.getInstance()
 
         // Create a map of fields to update
         val updates = mutableMapOf<String, Any>()
-        name?.let { updates["name"] = it }
-        description?.let { updates["description"] = it }
-        ownerIdentifier?.let { updates["ownerUid"] = it.uid }
+        groupItem.name?.let { updates["name"] = it }
+        groupItem.description?.let { updates["description"] = it }
+        groupItem.ownerUid?.let { updates["ownerUid"] = it }
 
         // Update the document
         db.collection("groups")
-            .document(groupIdentifier.uid)
+            .document(groupItem.uid)
             .update(updates)
             .addOnSuccessListener {
                 Log.d(ContentValues.TAG, "Group updated successfully")
@@ -89,12 +82,12 @@ object GroupConnector {
             }
     }
 
-    fun deleteGroup(groupIdentifier: GroupIdentifier) {
+    override fun <T : IIdentifier> deleteItem(identifier: T) {
         val db = FirebaseFirestore.getInstance()
 
         // Delete the document
         db.collection("groups")
-            .document(groupIdentifier.uid)
+            .document(identifier.uid)
             .delete()
             .addOnSuccessListener {
                 Log.d(ContentValues.TAG, "Group deleted successfully")
