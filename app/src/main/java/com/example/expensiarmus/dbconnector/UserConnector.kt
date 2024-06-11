@@ -14,6 +14,23 @@ import kotlinx.coroutines.tasks.await
 
 object UserConnector: Connector<User> {
 
+    override fun <T : IIdentifier> getItem(identifier: T): User? {
+        val db = FirebaseFirestore.getInstance()
+        val deferred = CompletableDeferred<User?>()
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val document = db.collection("users").document(identifier.uid).get().await()
+                val user = document.toObject(User::class.java)
+                deferred.complete(user)
+            } catch (e: Exception) {
+                deferred.completeExceptionally(e)
+            }
+        }
+
+        return runBlocking { deferred.await() }
+    }
+
     override fun getItems(): List<User> {
         val db = FirebaseFirestore.getInstance()
         val deferred = CompletableDeferred<List<User>>()

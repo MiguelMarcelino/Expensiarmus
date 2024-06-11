@@ -5,12 +5,14 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.expensiarmus.R
 import com.example.expensiarmus.data.ExpenseItem
 import com.example.expensiarmus.data.identifiers.GroupIdentifier
 import com.example.expensiarmus.databinding.FragmentDetailBinding
-import com.example.expensiarmus.dbconnector.GroupConnector
 import com.example.expensiarmus.dbconnector.GroupExpenseConnector
+
 
 class GroupDetailFragment : Fragment() {
 
@@ -32,6 +34,10 @@ class GroupDetailFragment : Fragment() {
         binding.textId.text = id.toString()
         binding.textName.text = name
         binding.textDescription.text = description
+
+        binding.fab.setOnClickListener {
+            findNavController().navigate(R.id.action_detailFragment_to_expenseDetailFragment)
+        }
 
         // Get group expenses and display them
         uid?.let { groupId ->

@@ -24,5 +24,14 @@
     <fragment
         android:id="@+id/detailFragment"
         android:name="com.example.expensiarmus.ui.groupDetail.GroupDetailFragment"
-        tools:layout="@layout/fragment_detail" />
+        tools:layout="@layout/fragment_detail" >
+        <action
+            android:id="@+id/action_detailFragment_to_expenseDetailFragment"
+            app:destination="@id/detailFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/expenseDetailFragment"
+        android:name="com.example.expensiarmus.ui.expenseDetail.ExpenseDetailFragment"
+        android:label="Expense Detail Fragment" />
 </navigation>

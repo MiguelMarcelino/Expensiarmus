@@ -5,6 +5,8 @@ import com.example.expensiarmus.data.identifiers.UserIdentifier
 
 interface Connector<A> {
 
+    fun  <T : IIdentifier> getItem(identifier: T): A?
+
     fun getItems(): List<A>
 
     fun addItem(item: A)
