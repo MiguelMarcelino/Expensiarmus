@@ -1,3 +1,3 @@
 package com.example.expensiarmus.data.identifiers
 
-data class ExpenseIdentifier(val uid: String)
+data class ExpenseIdentifier(override val uid: String) : IIdentifier

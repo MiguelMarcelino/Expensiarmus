@@ -1,6 +1,7 @@
 package com.example.expensiarmus.data
 
 import com.google.firebase.Timestamp
+import java.util.UUID
 
 data class User(
     val uid: String,
@@ -11,13 +12,24 @@ data class User(
     val lastLogin: Timestamp,
     val registrationDate: Timestamp
 ) {
+
+    constructor() : this(
+        uid = UUID.randomUUID().toString(),
+        userName = "",
+        fullName = "",
+        email = "",
+        gender = "",
+        lastLogin = Timestamp.now(),
+        registrationDate = Timestamp.now()
+    )
+
     constructor(userName: String, fullName: String, email: String, gender: String) : this(
-        "",
-        userName,
-        fullName,
-        email,
-        gender,
-        Timestamp.now(),
-        Timestamp.now()
+        uid = UUID.randomUUID().toString(),
+        userName = userName,
+        fullName = fullName,
+        email = email,
+        gender = gender,
+        lastLogin = Timestamp.now(),
+        registrationDate = Timestamp.now()
     )
 }
