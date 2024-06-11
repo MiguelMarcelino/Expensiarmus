@@ -3,15 +3,15 @@ package com.example.expensiarmus.data
 import com.google.firebase.Timestamp
 
 data class ExpenseItem(
-    var uid: String = "",
-    var amount: Double = 0.0,
-    var description: String? = "",
-    var currency: String = "",
-    var status: String = "",
-    var tags: String = "",
-    var ownerUid: String = "",
-    var groupUid: String = "",
-    var createdAt: Timestamp = Timestamp.now()
+    var uid: String,
+    var amount: Double,
+    var description: String?,
+    var currency: String,
+    var status: String,
+    var tags: String,
+    var ownerUid: String,
+    var groupUid: String,
+    var createdAt: Timestamp
 ) {
     constructor(
         amount: Double,

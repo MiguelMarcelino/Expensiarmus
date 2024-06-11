@@ -3,10 +3,10 @@ package com.example.expensiarmus.data
 import com.google.firebase.Timestamp
 
 data class GroupItem(
-    val uid: String = "",
-    val name: String = "",
-    val description: String? = "",
-    val ownerUid: String = "",
+    val uid: String,
+    val name: String,
+    val description: String?,
+    val ownerUid: String,
     val createdAt: Timestamp = Timestamp.now(),
     val updatedAt: Timestamp = Timestamp.now()
 ) {
