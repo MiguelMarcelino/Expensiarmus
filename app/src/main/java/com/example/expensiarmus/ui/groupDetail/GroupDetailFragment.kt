@@ -5,7 +5,12 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.expensiarmus.data.ExpenseItem
+import com.example.expensiarmus.data.identifiers.GroupIdentifier
 import com.example.expensiarmus.databinding.FragmentDetailBinding
+import com.example.expensiarmus.dbconnector.GroupConnector
+import com.example.expensiarmus.dbconnector.GroupExpenseConnector
 
 class GroupDetailFragment : Fragment() {
 
@@ -13,19 +18,26 @@ class GroupDetailFragment : Fragment() {
     private val binding get() = _binding!!
 
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
+        inflater: LayoutInflater,
+        container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
         _binding = FragmentDetailBinding.inflate(inflater, container, false)
         val root: View = binding.root
 
-        val id = arguments?.getInt("id")
+        val uid = arguments?.getString("uid")
         val name = arguments?.getString("name")
         val description = arguments?.getString("description")
 
         binding.textId.text = id.toString()
         binding.textName.text = name
         binding.textDescription.text = description
+
+        // Get group expenses and display them
+        uid?.let { groupId ->
+            val expenses = GroupExpenseConnector.getExpenseForGroup(GroupIdentifier(groupId))
+            displayExpenses(expenses)
+        }
 
         return root
     }
@@ -35,4 +47,9 @@ class GroupDetailFragment : Fragment() {
         _binding = null
     }
 
+    private fun displayExpenses(expenses: List<ExpenseItem>) {
+        val adapter = ExpenseAdapter(expenses)
+        binding.recyclerViewExpenses.layoutManager = LinearLayoutManager(context)
+        binding.recyclerViewExpenses.adapter = adapter
+    }
 }

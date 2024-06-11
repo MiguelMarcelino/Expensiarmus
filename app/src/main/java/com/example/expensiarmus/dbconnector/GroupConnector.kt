@@ -6,8 +6,34 @@ import com.example.expensiarmus.data.GroupItem
 import com.example.expensiarmus.data.identifiers.GroupIdentifier
 import com.example.expensiarmus.data.identifiers.UserIdentifier
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.tasks.await
+import java.util.UUID
 
-class GroupConnector {
+object GroupConnector {
+
+    fun getGroups(): List<GroupItem> {
+        val db = FirebaseFirestore.getInstance()
+        val deferred = CompletableDeferred<List<GroupItem>>()
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val documents = db.collection("groups").get().await()
+                val groups = documents.map { document ->
+                    document.toObject(GroupItem::class.java)
+                }
+                deferred.complete(groups)
+            } catch (e: Exception) {
+                deferred.completeExceptionally(e)
+            }
+        }
+
+        return runBlocking { deferred.await() }
+    }
 
     fun createGroup(
         name: String,
@@ -18,10 +44,12 @@ class GroupConnector {
 
         // Create a new group object
         val group = GroupItem(
+            uid = UUID.randomUUID().toString(), // Generate uid for new GroupItem
             name = name,
             description = description,
             ownerUid = ownerIdentifier.uid
         )
+
 
         // Add a new document with a generated ID
         db.collection("groups")
