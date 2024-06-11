@@ -47,7 +47,6 @@ class MainActivity : AppCompatActivity() {
 
         // Initialize Firebase
         FirebaseApp.initializeApp(this)
-        FirebaseImportTest().test()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
