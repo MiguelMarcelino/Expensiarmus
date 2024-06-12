@@ -45,25 +45,4 @@ data class ExpenseItem(
         groupUid = groupId,
         createdAt = Timestamp.now()
     )
-
-    constructor(
-        uid: String,
-        amount: Double,
-        description: String?,
-        currency: String,
-        status: String,
-        tags: String,
-        ownerId: String,
-        groupId: String
-    ) : this(
-        uid = uid,
-        amount = amount,
-        description = description,
-        currency = currency,
-        status = status,
-        tags = tags,
-        ownerUid = ownerId,
-        groupUid = groupId,
-        createdAt = Timestamp.now()
-    )
 }
