@@ -7,13 +7,13 @@
 
     <fragment
         android:id="@+id/nav_home"
-        android:name="com.example.expensiarmus.ui.home.HomeFragment"
+        android:name="com.spellshare.expensiarmus.ui.home.HomeFragment"
         android:label="@string/menu_home"
         tools:layout="@layout/fragment_home" />
 
     <fragment
         android:id="@+id/nav_group"
-        android:name="com.example.expensiarmus.ui.group.GroupFragment"
+        android:name="com.spellshare.expensiarmus.ui.group.GroupFragment"
         android:label="@string/menu_group"
         tools:layout="@layout/fragment_group" >
         <action
@@ -23,7 +23,7 @@
 
     <fragment
         android:id="@+id/nav_group_detail"
-        android:name="com.example.expensiarmus.ui.groupDetail.GroupDetailFragment"
+        android:name="com.spellshare.expensiarmus.ui.groupDetail.GroupDetailFragment"
         tools:layout="@layout/fragment_group_detail" >
         <action
             android:id="@+id/action_nav_group_detail_to_nav_expense_detail"
@@ -32,6 +32,6 @@
 
     <fragment
         android:id="@+id/nav_expense_detail"
-        android:name="com.example.expensiarmus.ui.expenseDetail.ExpenseDetailFragment"
+        android:name="com.spellshare.expensiarmus.ui.expenseDetail.ExpenseDetailFragment"
         android:label="Expense Detail Fragment" />
 </navigation>
