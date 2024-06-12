@@ -16,6 +16,23 @@ import java.util.UUID
 
 class ExpenseConnector : Connector<ExpenseItem> {
 
+    override fun <T : IIdentifier> getItem(identifier: T): ExpenseItem? {
+        val db = FirebaseFirestore.getInstance()
+        val deferred = CompletableDeferred<ExpenseItem?>()
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val document = db.collection("expenses").document(identifier.uid).get().await()
+                val expense = document.toObject(ExpenseItem::class.java)
+                deferred.complete(expense)
+            } catch (e: Exception) {
+                deferred.completeExceptionally(e)
+            }
+        }
+
+        return runBlocking { deferred.await() }
+    }
+
     override fun getItems(): List<ExpenseItem> {
         val db = FirebaseFirestore.getInstance()
         val deferred = CompletableDeferred<List<ExpenseItem>>()

@@ -18,6 +18,23 @@ import java.util.UUID
 
 class GroupConnector : Connector<GroupItem> {
 
+    override fun <T : IIdentifier> getItem(identifier: T): GroupItem? {
+        val db = FirebaseFirestore.getInstance()
+        val deferred = CompletableDeferred<GroupItem?>()
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val document = db.collection("groups").document(identifier.uid).get().await()
+                val group = document.toObject(GroupItem::class.java)
+                deferred.complete(group)
+            } catch (e: Exception) {
+                deferred.completeExceptionally(e)
+            }
+        }
+
+        return runBlocking { deferred.await() }
+    }
+
     override fun getItems(): List<GroupItem> {
         val db = FirebaseFirestore.getInstance()
         val deferred = CompletableDeferred<List<GroupItem>>()
