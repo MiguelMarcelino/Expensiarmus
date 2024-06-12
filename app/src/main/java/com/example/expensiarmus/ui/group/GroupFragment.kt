@@ -17,8 +17,6 @@ class GroupFragment : Fragment() {
 
     private var _binding: FragmentGroupBinding? = null
 
-    // This property is only valid between onCreateView and
-    // onDestroyView.
     private val binding get() = _binding!!
 
     override fun onCreateView(
@@ -43,7 +41,7 @@ class GroupFragment : Fragment() {
                 putString("name", selectedItem.name)
                 putString("description", selectedItem.description)
             }
-            findNavController().navigate(R.id.action_groupFragment_to_groupDetailFragment, bundle)
+            findNavController().navigate(R.id.action_nav_group_to_nav_group_detail, bundle)
         }
 
         return root

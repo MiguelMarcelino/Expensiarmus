@@ -10,13 +10,13 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.expensiarmus.R
 import com.example.expensiarmus.data.ExpenseItem
 import com.example.expensiarmus.data.identifiers.GroupIdentifier
-import com.example.expensiarmus.databinding.FragmentDetailBinding
+import com.example.expensiarmus.databinding.FragmentGroupDetailBinding
 import com.example.expensiarmus.dbconnector.GroupExpenseConnector
 
 
 class GroupDetailFragment : Fragment() {
 
-    private var _binding: FragmentDetailBinding? = null
+    private var _binding: FragmentGroupDetailBinding? = null
     private val binding get() = _binding!!
 
     override fun onCreateView(
@@ -24,7 +24,7 @@ class GroupDetailFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        _binding = FragmentDetailBinding.inflate(inflater, container, false)
+        _binding = FragmentGroupDetailBinding.inflate(inflater, container, false)
         val root: View = binding.root
 
         val uid = arguments?.getString("uid")
@@ -36,7 +36,7 @@ class GroupDetailFragment : Fragment() {
         binding.textDescription.text = description
 
         binding.fab.setOnClickListener {
-            findNavController().navigate(R.id.action_detailFragment_to_expenseDetailFragment)
+            findNavController().navigate(R.id.action_nav_group_detail_to_nav_expense_detail)
         }
 
         // Get group expenses and display them
