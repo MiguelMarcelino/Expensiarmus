@@ -60,6 +60,7 @@ class ExpenseConnector : Connector<Expense> {
             currency = item.currency,
             status = item.status,
             tags = item.tags,
+            expenseShare = item.expenseShare,
             ownerId = item.ownerUid,
             groupId = item.groupUid
         )

@@ -52,10 +52,26 @@ class ExpenseCalculator {
             userBalances[user.uid] = 0.0
         }
 
-        // Calculate total expense and each user's contribution
+        // Calculate each user's net balance
         expenses.filter { it.groupUid == groupIdentifier.uid }.forEach { expense ->
             val ownerId = expense.ownerUid
-            userBalances[ownerId] = userBalances[ownerId]?.plus(expense.amount) ?: expense.amount
+            val totalExpense = expense.amount
+            val expenseShare = expense.expenseShare
+
+            if (expenseShare == null) {
+                // Original algorithm: owner pays the total amount
+                userBalances[ownerId] = userBalances[ownerId]?.plus(totalExpense) ?: totalExpense
+            } else {
+                // New algorithm: distribute the expense based on percentage shares
+                // The owner paid the total amount
+                userBalances[ownerId] = userBalances[ownerId]?.plus(totalExpense) ?: totalExpense
+
+                // Distribute the expense based on percentage shares
+                expenseShare.forEach { (userId, shareFraction) ->
+                    val shareAmount = totalExpense * shareFraction
+                    userBalances[userId] = userBalances[userId]?.minus(shareAmount) ?: -shareAmount
+                }
+            }
         }
 
         // Calculate total expense and fair share per user

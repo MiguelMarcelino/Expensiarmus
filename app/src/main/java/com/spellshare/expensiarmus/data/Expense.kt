@@ -10,6 +10,7 @@ data class Expense(
     var currency: String,
     var status: String,
     var tags: List<String>,
+    var expenseShare: Map<String, Double>?,
     var ownerUid: String,
     var groupUid: String,
     var createdAt: Timestamp
@@ -21,6 +22,7 @@ data class Expense(
         currency = "",
         status = "",
         tags = listOf(),
+        expenseShare = mapOf(),
         ownerUid = "",
         groupUid = "",
         createdAt = Timestamp.now()
@@ -32,6 +34,7 @@ data class Expense(
         currency: String,
         status: String,
         tags: List<String>,
+        expenseShare: Map<String, Double>?,
         ownerId: String,
         groupId: String
     ) : this(
@@ -41,6 +44,7 @@ data class Expense(
         currency = currency,
         status = status,
         tags = tags,
+        expenseShare = expenseShare,
         ownerUid = ownerId,
         groupUid = groupId,
         createdAt = Timestamp.now()
