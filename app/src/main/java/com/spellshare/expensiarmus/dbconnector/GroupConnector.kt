@@ -59,9 +59,9 @@ class GroupConnector : Connector<GroupItem> {
             uid = UUID.randomUUID().toString(), // Generate uid for new GroupItem
             name = groupItem.name,
             description = groupItem.description,
-            ownerUid = groupItem.ownerUid
+            ownerUid = groupItem.ownerUid,
+            userIds = groupItem.userIds
         )
-
 
         // Add a new document with a generated ID
         db.collection("groups")

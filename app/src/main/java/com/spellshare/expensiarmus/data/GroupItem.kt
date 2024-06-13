@@ -8,6 +8,7 @@ data class GroupItem(
     val name: String,
     val description: String?,
     val ownerUid: String,
+    val userIds: List<String>,
     val createdAt: Timestamp = Timestamp.now(),
     val updatedAt: Timestamp = Timestamp.now()
 ) {
@@ -17,6 +18,7 @@ data class GroupItem(
         name = "",
         description = "",
         ownerUid = "",
+        userIds = listOf(),
         createdAt = Timestamp.now(),
         updatedAt = Timestamp.now()
     )
@@ -26,15 +28,23 @@ data class GroupItem(
         name = name,
         description = description,
         ownerUid = ownerUid,
+        userIds = listOf(),
         createdAt = Timestamp.now(),
         updatedAt = Timestamp.now()
     )
 
-    constructor(uid: String, name: String, description: String?, ownerUid: String) : this(
+    constructor(
+        uid: String,
+        name: String,
+        description: String?,
+        ownerUid: String,
+        userIds: List<String>
+    ) : this(
         uid = uid,
         name = name,
         description = description,
         ownerUid = ownerUid,
+        userIds = userIds,
         createdAt = Timestamp.now(),
         updatedAt = Timestamp.now()
     )
