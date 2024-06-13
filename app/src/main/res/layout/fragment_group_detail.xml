@@ -25,7 +25,7 @@
             android:layout_height="80dp"
             android:scaleType="centerCrop"
             android:contentDescription="Group Image"
-            app:srcCompat="@drawable/ic_group_placeholder" />
+            app:srcCompat="@mipmap/ic_group" />
 
         <!-- Group Information -->
         <LinearLayout
