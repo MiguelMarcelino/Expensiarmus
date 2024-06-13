@@ -1,6 +1,6 @@
 package com.spellshare.expensiarmus.logic
 
-import com.spellshare.expensiarmus.data.ExpenseItem
+import com.spellshare.expensiarmus.data.Expense
 import com.spellshare.expensiarmus.data.User
 import com.spellshare.expensiarmus.data.identifiers.GroupIdentifier
 import com.google.firebase.Timestamp
@@ -33,7 +33,7 @@ class ExpenseCalculatorTest {
         )
 
         val expenses = listOf(
-            ExpenseItem(
+            Expense(
                 uid = "1",
                 amount = 100.0,
                 description = "Dinner",
@@ -44,7 +44,7 @@ class ExpenseCalculatorTest {
                 groupUid = "1",
                 createdAt = Timestamp.now()
             ),
-            ExpenseItem(
+            Expense(
                 uid = "2",
                 amount = 50.0,
                 description = "Taxi",
@@ -81,7 +81,7 @@ class ExpenseCalculatorTest {
         )
 
         val expenses = listOf(
-            ExpenseItem(
+            Expense(
                 uid = "1",
                 amount = 100.0,
                 description = "Dinner",
@@ -92,7 +92,7 @@ class ExpenseCalculatorTest {
                 groupUid = "1",
                 createdAt = Timestamp.now()
             ),
-            ExpenseItem(
+            Expense(
                 uid = "1",
                 amount = 50.0,
                 description = "Taxi",
@@ -127,7 +127,7 @@ class ExpenseCalculatorTest {
             )
         )
 
-        val expenses = listOf<ExpenseItem>()
+        val expenses = listOf<Expense>()
 
         val expenseCalculator = ExpenseCalculator()
 
@@ -170,7 +170,7 @@ class ExpenseCalculatorTest {
         )
 
         val expenses = listOf(
-            ExpenseItem(
+            Expense(
                 uid = "1",
                 amount = 50.0,
                 description = "Taxi",
@@ -181,7 +181,7 @@ class ExpenseCalculatorTest {
                 groupUid = "1",
                 createdAt = Timestamp.now()
             ),
-            ExpenseItem(
+            Expense(
                 uid = "2",
                 amount = 50.0,
                 description = "Taxi",

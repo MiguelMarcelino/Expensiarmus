@@ -1,6 +1,6 @@
 package com.spellshare.expensiarmus.dbconnector
 
-import com.spellshare.expensiarmus.data.ExpenseItem
+import com.spellshare.expensiarmus.data.Expense
 import com.spellshare.expensiarmus.data.identifiers.GroupIdentifier
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CompletableDeferred
@@ -12,10 +12,10 @@ import kotlinx.coroutines.tasks.await
 
 object GroupExpenseConnector {
 
-    fun getExpenseForGroup(groupIdentifier: GroupIdentifier): List<ExpenseItem> {
+    fun getExpenseForGroup(groupIdentifier: GroupIdentifier): List<Expense> {
         // Get all expenses for a group
         val db = FirebaseFirestore.getInstance()
-        val deferred = CompletableDeferred<List<ExpenseItem>>()
+        val deferred = CompletableDeferred<List<Expense>>()
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -24,7 +24,7 @@ object GroupExpenseConnector {
                     .get()
                     .await()
                 val expenses = documents.map { document ->
-                    document.toObject(ExpenseItem::class.java)
+                    document.toObject(Expense::class.java)
                 }
                 deferred.complete(expenses)
             } catch (e: Exception) {

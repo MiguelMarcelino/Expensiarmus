@@ -2,7 +2,7 @@ package com.spellshare.expensiarmus.dbconnector
 
 import android.content.ContentValues.TAG
 import android.util.Log
-import com.spellshare.expensiarmus.data.ExpenseItem
+import com.spellshare.expensiarmus.data.Expense
 import com.spellshare.expensiarmus.data.identifiers.IIdentifier
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CompletableDeferred
@@ -11,18 +11,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.tasks.await
-import java.util.UUID
 
-class ExpenseConnector : Connector<ExpenseItem> {
+class ExpenseConnector : Connector<Expense> {
 
-    override fun <T : IIdentifier> getItem(identifier: T): ExpenseItem? {
+    override fun <T : IIdentifier> getItem(identifier: T): Expense? {
         val db = FirebaseFirestore.getInstance()
-        val deferred = CompletableDeferred<ExpenseItem?>()
+        val deferred = CompletableDeferred<Expense?>()
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val document = db.collection("expenses").document(identifier.uid).get().await()
-                val expense = document.toObject(ExpenseItem::class.java)
+                val expense = document.toObject(Expense::class.java)
                 deferred.complete(expense)
             } catch (e: Exception) {
                 deferred.completeExceptionally(e)
@@ -32,15 +31,15 @@ class ExpenseConnector : Connector<ExpenseItem> {
         return runBlocking { deferred.await() }
     }
 
-    override fun getItems(): List<ExpenseItem> {
+    override fun getItems(): List<Expense> {
         val db = FirebaseFirestore.getInstance()
-        val deferred = CompletableDeferred<List<ExpenseItem>>()
+        val deferred = CompletableDeferred<List<Expense>>()
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val documents = db.collection("expenses").get().await()
                 val expenses = documents.map { document ->
-                    document.toObject(ExpenseItem::class.java)
+                    document.toObject(Expense::class.java)
                 }
                 deferred.complete(expenses)
             } catch (e: Exception) {
@@ -51,18 +50,18 @@ class ExpenseConnector : Connector<ExpenseItem> {
         return runBlocking { deferred.await() }
     }
 
-    override fun addItem(expenseItem: ExpenseItem) {
+    override fun addItem(item: Expense) {
         val db = FirebaseFirestore.getInstance()
 
         // Create a new expense object
-        val expense = ExpenseItem(
-            amount = expenseItem.amount,
-            description = expenseItem.description,
-            currency = expenseItem.currency,
-            status = expenseItem.status,
-            tags = expenseItem.tags,
-            ownerId = expenseItem.ownerUid,
-            groupId = expenseItem.groupUid
+        val expense = Expense(
+            amount = item.amount,
+            description = item.description,
+            currency = item.currency,
+            status = item.status,
+            tags = item.tags,
+            ownerId = item.ownerUid,
+            groupId = item.groupUid
         )
 
         // Add a new document with a generated ID
@@ -76,23 +75,23 @@ class ExpenseConnector : Connector<ExpenseItem> {
             }
     }
 
-    override fun updateItem(expenseItem: ExpenseItem) {
+    override fun updateItem(item: Expense) {
         val db = FirebaseFirestore.getInstance()
 
         // Create a map of fields to update
         val updates = mutableMapOf<String, Any>()
 
-        expenseItem.amount?.let { updates["amount"] = it }
-        expenseItem.description?.let { updates["description"] = it }
-        expenseItem.currency?.let { updates["currency"] = it }
-        expenseItem.status?.let { updates["status"] = it }
-        expenseItem.tags?.let { updates["tags"] = it }
-        expenseItem.ownerUid?.let { updates["ownerId"] = it }
-        expenseItem.groupUid?.let { updates["groupId"] = it }
+        item.amount.let { updates["amount"] = it }
+        item.description?.let { updates["description"] = it }
+        item.currency.let { updates["currency"] = it }
+        item.status.let { updates["status"] = it }
+        item.tags.let { updates["tags"] = it }
+        item.ownerUid.let { updates["ownerId"] = it }
+        item.groupUid.let { updates["groupId"] = it }
 
         // Update the document
         db.collection("expenses")
-            .document(expenseItem.uid)
+            .document(item.uid)
             .update(updates)
             .addOnSuccessListener {
                 Log.d(TAG, "Expense updated successfully")

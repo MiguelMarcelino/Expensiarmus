@@ -6,11 +6,13 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.spellshare.expensiarmus.R
-import com.spellshare.expensiarmus.data.ExpenseItem
+import com.spellshare.expensiarmus.data.Expense
 
-class ExpenseAdapter(private val expenses: List<ExpenseItem>) : RecyclerView.Adapter<ExpenseAdapter.ExpenseViewHolder>() {
+class ExpenseAdapter(private val expenses: List<Expense>) :
+    RecyclerView.Adapter<ExpenseAdapter.ExpenseViewHolder>() {
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ExpenseViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.fragment_expense, parent, false)
+        val view =
+            LayoutInflater.from(parent.context).inflate(R.layout.fragment_expense, parent, false)
         return ExpenseViewHolder(view)
     }
 
@@ -27,7 +29,7 @@ class ExpenseAdapter(private val expenses: List<ExpenseItem>) : RecyclerView.Ada
         private val createdAtView: TextView = itemView.findViewById(R.id.textExpenseCreatedAt)
         private val currencyView: TextView = itemView.findViewById(R.id.textExpenseCurrency)
 
-        fun bind(expense: ExpenseItem) {
+        fun bind(expense: Expense) {
             descriptionView.text = expense.description
             amountView.text = expense.amount.toString()
             createdAtView.text = expense.createdAt.toString()
