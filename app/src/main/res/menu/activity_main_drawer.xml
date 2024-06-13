@@ -10,7 +10,7 @@
             android:title="@string/menu_home" />
         <item
             android:id="@+id/nav_group"
-            android:icon="@drawable/baseline_groups_24"
+            android:icon="@drawable/ic_group_placeholder"
             android:title="@string/menu_group" />
     </group>
 </menu>
