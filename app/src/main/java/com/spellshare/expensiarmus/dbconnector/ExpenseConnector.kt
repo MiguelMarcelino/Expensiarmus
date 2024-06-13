@@ -56,7 +56,6 @@ class ExpenseConnector : Connector<ExpenseItem> {
 
         // Create a new expense object
         val expense = ExpenseItem(
-            uid = UUID.randomUUID().toString(), // Generate uid for new ExpenseItem
             amount = expenseItem.amount,
             description = expenseItem.description,
             currency = expenseItem.currency,
@@ -68,8 +67,7 @@ class ExpenseConnector : Connector<ExpenseItem> {
 
         // Add a new document with a generated ID
         db.collection("expenses")
-            .document(expense.uid)  // Use id as the document ID
-            .set(expense)
+            .add(expense)
             .addOnSuccessListener {
                 Log.d(TAG, "Expense added successfully")
             }

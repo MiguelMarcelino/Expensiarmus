@@ -9,7 +9,7 @@ data class ExpenseItem(
     var description: String?,
     var currency: String,
     var status: String,
-    var tags: String,
+    var tags: List<String>,
     var ownerUid: String,
     var groupUid: String,
     var createdAt: Timestamp
@@ -20,7 +20,7 @@ data class ExpenseItem(
         description = "",
         currency = "",
         status = "",
-        tags = "",
+        tags = listOf(),
         ownerUid = "",
         groupUid = "",
         createdAt = Timestamp.now()
@@ -31,32 +31,11 @@ data class ExpenseItem(
         description: String?,
         currency: String,
         status: String,
-        tags: String,
+        tags: List<String>,
         ownerId: String,
         groupId: String
     ) : this(
         uid = UUID.randomUUID().toString(),
-        amount = amount,
-        description = description,
-        currency = currency,
-        status = status,
-        tags = tags,
-        ownerUid = ownerId,
-        groupUid = groupId,
-        createdAt = Timestamp.now()
-    )
-
-    constructor(
-        uid: String,
-        amount: Double,
-        description: String?,
-        currency: String,
-        status: String,
-        tags: String,
-        ownerId: String,
-        groupId: String
-    ) : this(
-        uid = uid,
         amount = amount,
         description = description,
         currency = currency,

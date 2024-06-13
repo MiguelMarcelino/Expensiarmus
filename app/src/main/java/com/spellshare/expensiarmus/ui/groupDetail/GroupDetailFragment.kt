@@ -30,13 +30,19 @@ class GroupDetailFragment : Fragment() {
         val uid = arguments?.getString("uid")
         val name = arguments?.getString("name")
         val description = arguments?.getString("description")
+        val ownerUid = arguments?.getString("ownerUid")
 
-        binding.textId.text = id.toString()
+        binding.textId.text = uid
         binding.textName.text = name
         binding.textDescription.text = description
 
         binding.fab.setOnClickListener {
-            findNavController().navigate(R.id.action_nav_group_detail_to_nav_expense_detail)
+            // We pass the UID to search for the existing expense
+            val bundle = Bundle().apply {
+                putString("groupUid", uid)
+                putString("ownerUid", ownerUid)
+            }
+            findNavController().navigate(R.id.action_nav_group_detail_to_nav_expense_detail, bundle)
         }
 
         // Get group expenses and display them

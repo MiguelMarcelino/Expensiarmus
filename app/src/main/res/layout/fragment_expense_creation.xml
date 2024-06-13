@@ -12,15 +12,14 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Expense UID"
+            android:text="Description"
             android:textStyle="bold" />
 
         <EditText
-            android:id="@+id/expenseUid"
+            android:id="@+id/expenseDescription"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="text"
-            android:enabled="false" />
+            android:inputType="text" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -33,18 +32,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:inputType="numberDecimal" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Description"
-            android:textStyle="bold" />
-
-        <EditText
-            android:id="@+id/expenseDescription"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:inputType="text" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -81,43 +68,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:inputType="text" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Owner UID"
-            android:textStyle="bold" />
-
-        <EditText
-            android:id="@+id/expenseOwnerUid"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:inputType="text"
-            android:enabled="false" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Group UID"
-            android:textStyle="bold" />
-
-        <EditText
-            android:id="@+id/expenseGroupUid"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:inputType="text"
-            android:enabled="false" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Created At"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/expenseCreatedAt"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
 
         <Button
             android:id="@+id/saveButton"
