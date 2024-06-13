@@ -60,6 +60,8 @@ class ExpenseCreationFragment : Fragment() {
         saveButton.setOnClickListener {
             try {
                 createExpense(uid, ownerUid, groupUid, expenseConnector)
+            } catch (e: RequiredDataException) {
+                showToast(requireContext(), "Missing required data: ${e.message}")
             } catch (e: Exception) {
                 showToast(requireContext(), "Error creating expense: ${e.message}")
             }
