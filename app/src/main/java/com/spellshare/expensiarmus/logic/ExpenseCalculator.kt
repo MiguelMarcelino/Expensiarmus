@@ -2,13 +2,17 @@ package com.spellshare.expensiarmus.logic
 
 import com.spellshare.expensiarmus.data.Balance
 import com.spellshare.expensiarmus.data.Debt
-import com.spellshare.expensiarmus.data.ExpenseItem
+import com.spellshare.expensiarmus.data.Expense
 import com.spellshare.expensiarmus.data.User
 import com.spellshare.expensiarmus.data.identifiers.GroupIdentifier
 
 class ExpenseCalculator {
 
-    fun calculateBalances(users: List<User>, expenses: List<ExpenseItem>, groupId: GroupIdentifier): List<Balance> {
+    fun calculateBalances(
+        users: List<User>,
+        expenses: List<Expense>,
+        groupId: GroupIdentifier
+    ): List<Balance> {
         // A map to store each user's balance
         val userBalances = mutableMapOf<String, Double>()
 
@@ -36,7 +40,11 @@ class ExpenseCalculator {
         return userBalances.map { Balance(it.key, it.value) }
     }
 
-    fun calculateBalancesAndSettle(users: List<User>, expenses: List<ExpenseItem>, groupIdentifier: GroupIdentifier): List<Debt> {
+    fun calculateBalancesAndSettle(
+        users: List<User>,
+        expenses: List<Expense>,
+        groupIdentifier: GroupIdentifier
+    ): List<Debt> {
         val userBalances = mutableMapOf<String, Double>()
 
         // Initialize balances for each user

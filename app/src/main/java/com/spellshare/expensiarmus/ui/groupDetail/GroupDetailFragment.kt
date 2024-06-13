@@ -8,7 +8,7 @@ import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.spellshare.expensiarmus.R
-import com.spellshare.expensiarmus.data.ExpenseItem
+import com.spellshare.expensiarmus.data.Expense
 import com.spellshare.expensiarmus.data.identifiers.GroupIdentifier
 import com.spellshare.expensiarmus.databinding.FragmentGroupDetailBinding
 import com.spellshare.expensiarmus.dbconnector.GroupExpenseConnector
@@ -59,7 +59,7 @@ class GroupDetailFragment : Fragment() {
         _binding = null
     }
 
-    private fun displayExpenses(expenses: List<ExpenseItem>) {
+    private fun displayExpenses(expenses: List<Expense>) {
         val adapter = ExpenseAdapter(expenses)
         binding.recyclerViewExpenses.layoutManager = LinearLayoutManager(context)
         binding.recyclerViewExpenses.adapter = adapter

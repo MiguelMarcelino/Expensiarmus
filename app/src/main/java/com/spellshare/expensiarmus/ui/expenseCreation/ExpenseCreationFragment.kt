@@ -10,7 +10,7 @@ import android.widget.EditText
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import com.spellshare.expensiarmus.R
-import com.spellshare.expensiarmus.data.ExpenseItem
+import com.spellshare.expensiarmus.data.Expense
 import com.spellshare.expensiarmus.data.identifiers.ExpenseIdentifier
 import com.spellshare.expensiarmus.databinding.FragmentExpenseCreationBinding
 import com.spellshare.expensiarmus.dbconnector.ExpenseConnector
@@ -29,7 +29,7 @@ class ExpenseCreationFragment : Fragment() {
     private lateinit var expenseTags: EditText
     private lateinit var saveButton: Button
 
-    private var expenseItem: ExpenseItem? = null
+    private var expenseItem: Expense? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -60,6 +60,8 @@ class ExpenseCreationFragment : Fragment() {
         saveButton.setOnClickListener {
             try {
                 createExpense(uid, ownerUid, groupUid, expenseConnector)
+            } catch (e: RequiredDataException) {
+                showToast(requireContext(), "Missing required data: ${e.message}")
             } catch (e: Exception) {
                 showToast(requireContext(), "Error creating expense: ${e.message}")
             }
@@ -68,7 +70,7 @@ class ExpenseCreationFragment : Fragment() {
         return root
     }
 
-    private fun populateFields(expenseItem: ExpenseItem?) {
+    private fun populateFields(expenseItem: Expense?) {
         expenseItem?.let {
             expenseAmount.setText(it.amount.toString())
             expenseDescription.setText(it.description)
@@ -89,21 +91,21 @@ class ExpenseCreationFragment : Fragment() {
             throw RequiredDataException("Owner and group UIDs are required to create a new expense item")
         } else if (uid == null) {
             // When uid is null, we create a new item
-            val newExpenseItem = ExpenseItem(
+            val newExpenseItem = Expense(
                 amount = expenseAmount.text.toString().toDouble(),
                 description = expenseDescription.text.toString(),
                 currency = expenseCurrency.text.toString(),
                 status = expenseStatus.text.toString(),
                 tags = expenseTags.text.toString().split(","),
-                ownerId = ownerUid!!,
-                groupId = groupUid!!
+                ownerId = ownerUid,
+                groupId = groupUid
             )
             expenseConnector.addItem(newExpenseItem)
         } else {
             // We use the existing uid to update the item
             // The fields ownerId, groupId and createdAt are not updated
-            val updatedExpenseItem = ExpenseItem(
-                uid = uid!!,
+            val updatedExpenseItem = Expense(
+                uid = uid,
                 amount = expenseAmount.text.toString().toDouble(),
                 description = expenseDescription.text.toString(),
                 currency = expenseCurrency.text.toString(),

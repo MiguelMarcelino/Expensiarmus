@@ -2,7 +2,7 @@ package com.spellshare.expensiarmus.dbconnector
 
 import android.content.ContentValues
 import android.util.Log
-import com.spellshare.expensiarmus.data.GroupItem
+import com.spellshare.expensiarmus.data.Group
 import com.spellshare.expensiarmus.data.identifiers.IIdentifier
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CompletableDeferred
@@ -13,16 +13,16 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
 
-class GroupConnector : Connector<GroupItem> {
+class GroupConnector : Connector<Group> {
 
-    override fun <T : IIdentifier> getItem(identifier: T): GroupItem? {
+    override fun <T : IIdentifier> getItem(identifier: T): Group? {
         val db = FirebaseFirestore.getInstance()
-        val deferred = CompletableDeferred<GroupItem?>()
+        val deferred = CompletableDeferred<Group?>()
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val document = db.collection("groups").document(identifier.uid).get().await()
-                val group = document.toObject(GroupItem::class.java)
+                val group = document.toObject(Group::class.java)
                 deferred.complete(group)
             } catch (e: Exception) {
                 deferred.completeExceptionally(e)
@@ -32,15 +32,15 @@ class GroupConnector : Connector<GroupItem> {
         return runBlocking { deferred.await() }
     }
 
-    override fun getItems(): List<GroupItem> {
+    override fun getItems(): List<Group> {
         val db = FirebaseFirestore.getInstance()
-        val deferred = CompletableDeferred<List<GroupItem>>()
+        val deferred = CompletableDeferred<List<Group>>()
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val documents = db.collection("groups").get().await()
                 val groups = documents.map { document ->
-                    document.toObject(GroupItem::class.java)
+                    document.toObject(Group::class.java)
                 }
                 deferred.complete(groups)
             } catch (e: Exception) {
@@ -51,17 +51,17 @@ class GroupConnector : Connector<GroupItem> {
         return runBlocking { deferred.await() }
     }
 
-    override fun addItem(groupItem: GroupItem) {
+    override fun addItem(item: Group) {
         val db = FirebaseFirestore.getInstance()
 
         // Create a new group object
-        val group = GroupItem(
+        val group = Group(
             uid = UUID.randomUUID().toString(), // Generate uid for new GroupItem
-            name = groupItem.name,
-            description = groupItem.description,
-            ownerUid = groupItem.ownerUid
+            name = item.name,
+            description = item.description,
+            ownerUid = item.ownerUid,
+            userIds = item.userIds
         )
-
 
         // Add a new document with a generated ID
         db.collection("groups")
@@ -75,18 +75,18 @@ class GroupConnector : Connector<GroupItem> {
             }
     }
 
-    override fun updateItem(groupItem: GroupItem) {
+    override fun updateItem(item: Group) {
         val db = FirebaseFirestore.getInstance()
 
         // Create a map of fields to update
         val updates = mutableMapOf<String, Any>()
-        groupItem.name?.let { updates["name"] = it }
-        groupItem.description?.let { updates["description"] = it }
-        groupItem.ownerUid?.let { updates["ownerUid"] = it }
+        item.name.let { updates["name"] = it }
+        item.description?.let { updates["description"] = it }
+        item.ownerUid.let { updates["ownerUid"] = it }
 
         // Update the document
         db.collection("groups")
-            .document(groupItem.uid)
+            .document(item.uid)
             .update(updates)
             .addOnSuccessListener {
                 Log.d(ContentValues.TAG, "Group updated successfully")

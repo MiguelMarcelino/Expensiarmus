@@ -3,7 +3,7 @@ package com.spellshare.expensiarmus.data
 import com.google.firebase.Timestamp
 import java.util.UUID
 
-data class ExpenseItem(
+data class Expense(
     var uid: String,
     var amount: Double,
     var description: String?,

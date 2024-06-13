@@ -1,6 +1,6 @@
 package com.spellshare.expensiarmus.logic
 
-import com.spellshare.expensiarmus.data.ExpenseItem
+import com.spellshare.expensiarmus.data.Expense
 import com.spellshare.expensiarmus.data.User
 import com.spellshare.expensiarmus.data.identifiers.GroupIdentifier
 import com.google.firebase.Timestamp
@@ -33,24 +33,24 @@ class ExpenseCalculatorTest {
         )
 
         val expenses = listOf(
-            ExpenseItem(
+            Expense(
                 uid = "1",
                 amount = 100.0,
                 description = "Dinner",
                 currency = "USD",
                 status = "paid",
-                tags = "",
+                tags = listOf("food"),
                 ownerUid = "1",
                 groupUid = "1",
                 createdAt = Timestamp.now()
             ),
-            ExpenseItem(
+            Expense(
                 uid = "2",
                 amount = 50.0,
                 description = "Taxi",
                 currency = "USD",
                 status = "paid",
-                tags = "",
+                tags = listOf("transportation"),
                 ownerUid = "2",
                 groupUid = "1",
                 createdAt = Timestamp.now()
@@ -81,24 +81,24 @@ class ExpenseCalculatorTest {
         )
 
         val expenses = listOf(
-            ExpenseItem(
+            Expense(
                 uid = "1",
                 amount = 100.0,
                 description = "Dinner",
                 currency = "USD",
                 status = "paid",
-                tags = "",
+                tags = listOf("food"),
                 ownerUid = "1",
                 groupUid = "1",
                 createdAt = Timestamp.now()
             ),
-            ExpenseItem(
+            Expense(
                 uid = "1",
                 amount = 50.0,
                 description = "Taxi",
                 currency = "USD",
                 status = "paid",
-                tags = "",
+                tags = listOf("transportation"),
                 ownerUid = "1",
                 groupUid = "1",
                 createdAt = Timestamp.now()
@@ -127,7 +127,7 @@ class ExpenseCalculatorTest {
             )
         )
 
-        val expenses = listOf<ExpenseItem>()
+        val expenses = listOf<Expense>()
 
         val expenseCalculator = ExpenseCalculator()
 
@@ -170,24 +170,24 @@ class ExpenseCalculatorTest {
         )
 
         val expenses = listOf(
-            ExpenseItem(
+            Expense(
                 uid = "1",
                 amount = 50.0,
                 description = "Taxi",
                 currency = "USD",
                 status = "paid",
-                tags = "",
+                tags = listOf("transportation"),
                 ownerUid = "1",
                 groupUid = "1",
                 createdAt = Timestamp.now()
             ),
-            ExpenseItem(
+            Expense(
                 uid = "2",
                 amount = 50.0,
                 description = "Taxi",
                 currency = "USD",
                 status = "paid",
-                tags = "",
+                tags = listOf("transportation"),
                 ownerUid = "2",
                 groupUid = "1",
                 createdAt = Timestamp.now()
@@ -196,7 +196,8 @@ class ExpenseCalculatorTest {
 
         val expenseCalculator = ExpenseCalculator()
 
-        val debts = expenseCalculator.calculateBalancesAndSettle(users, expenses, GroupIdentifier("1"))
+        val debts =
+            expenseCalculator.calculateBalancesAndSettle(users, expenses, GroupIdentifier("1"))
 
         println(debts)
 
