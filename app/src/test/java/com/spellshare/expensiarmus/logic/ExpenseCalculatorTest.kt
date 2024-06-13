@@ -5,6 +5,7 @@ import com.spellshare.expensiarmus.data.User
 import com.spellshare.expensiarmus.data.identifiers.GroupIdentifier
 import com.google.firebase.Timestamp
 import com.spellshare.expensiarmus.data.Debt
+import com.spellshare.expensiarmus.data.identifiers.UserIdentifier
 import org.junit.Test
 import kotlin.math.abs
 
@@ -42,8 +43,9 @@ class ExpenseCalculatorTest {
                 status = "paid",
                 tags = listOf("food"),
                 expenseShare = mapOf("1" to 0.5, "2" to 0.5),
-                ownerUid = "1",
-                groupUid = "1",
+                ownerIdentifier = UserIdentifier("1"),
+                groupIdentifier = GroupIdentifier("1"),
+                userIdentifiers = listOf("1", "2").map { UserIdentifier(it) },
                 createdAt = Timestamp.now()
             ),
             Expense(
@@ -54,8 +56,9 @@ class ExpenseCalculatorTest {
                 status = "paid",
                 tags = listOf("transportation"),
                 expenseShare = mapOf("1" to 0.5, "2" to 0.5),
-                ownerUid = "2",
-                groupUid = "1",
+                ownerIdentifier = UserIdentifier("2"),
+                groupIdentifier = GroupIdentifier("1"),
+                userIdentifiers = listOf("1", "2").map { UserIdentifier(it) },
                 createdAt = Timestamp.now()
             )
         )
@@ -92,8 +95,9 @@ class ExpenseCalculatorTest {
                 status = "paid",
                 tags = listOf("food"),
                 expenseShare = mapOf("1" to 0.5, "2" to 0.5),
-                ownerUid = "1",
-                groupUid = "1",
+                ownerIdentifier = UserIdentifier("1"),
+                groupIdentifier = GroupIdentifier("1"),
+                userIdentifiers = listOf("1", "2").map { UserIdentifier(it) },
                 createdAt = Timestamp.now()
             ),
             Expense(
@@ -104,8 +108,9 @@ class ExpenseCalculatorTest {
                 status = "paid",
                 tags = listOf("transportation"),
                 expenseShare = mapOf("1" to 0.5, "2" to 0.5),
-                ownerUid = "1",
-                groupUid = "1",
+                ownerIdentifier = UserIdentifier("1"),
+                groupIdentifier = GroupIdentifier("1"),
+                userIdentifiers = listOf("1", "2").map { UserIdentifier(it) },
                 createdAt = Timestamp.now()
             )
         )
@@ -144,36 +149,8 @@ class ExpenseCalculatorTest {
 
     @Test
     fun calculateDebtTest() {
-        val users = listOf(
-            User(
-                uid = "1",
-                userName = "john_doe",
-                fullName = "John Doe",
-                email = "john@example.com",
-                gender = "male",
-                lastLogin = Timestamp.now(),
-                registrationDate = Timestamp.now()
-            ),
-            User(
-                uid = "2",
-                userName = "jane_doe",
-                fullName = "Jane Doe",
-                email = "jane@example.com",
-                gender = "female",
-                lastLogin = Timestamp.now(),
-                registrationDate = Timestamp.now()
-            ),
-            User(
-                uid = "3",
-                userName = "bob",
-                fullName = "Bob Smith",
-                email = "bob@example.com",
-                gender = "male",
-                lastLogin = Timestamp.now(),
-                registrationDate = Timestamp.now()
-            )
-        )
-
+        // For simplicity, we gave names to user IDs
+        // John = 1, Jane = 2, Bob = 3
         val expenses = listOf(
             Expense(
                 uid = "1",
@@ -183,8 +160,9 @@ class ExpenseCalculatorTest {
                 status = "paid",
                 tags = listOf("transportation"),
                 expenseShare = null,
-                ownerUid = "1",
-                groupUid = "1",
+                ownerIdentifier = UserIdentifier("1"),
+                groupIdentifier = GroupIdentifier("1"),
+                userIdentifiers = listOf("1", "2", "3").map { UserIdentifier(it) },
                 createdAt = Timestamp.now()
             ),
             Expense(
@@ -195,16 +173,16 @@ class ExpenseCalculatorTest {
                 status = "paid",
                 tags = listOf("transportation"),
                 expenseShare = null,
-                ownerUid = "2",
-                groupUid = "1",
+                ownerIdentifier = UserIdentifier("2"),
+                groupIdentifier = GroupIdentifier("1"),
+                userIdentifiers = listOf("1", "2", "3").map { UserIdentifier(it) },
                 createdAt = Timestamp.now()
             )
         )
 
         val expenseCalculator = ExpenseCalculator()
 
-        val debts =
-            expenseCalculator.calculateBalancesAndSettle(users, expenses, GroupIdentifier("1"))
+        val debts = expenseCalculator.calculateAllDebts(expenses)
 
         println(debts)
 
@@ -212,13 +190,11 @@ class ExpenseCalculatorTest {
         val bobOwedTotal = 100.0 / 3
         val bobOwedPerUser = bobOwedTotal / 2
 
-        println(bobOwedPerUser)
-
         assert(debts.size == 2)
         // Bob owes Jane $16.67
         val janeDept = debts[0]
         assert(janeDept.debtorUid == "3")
-        assert(janeDept.creditorUid == "2")
+        assert(janeDept.creditorUid == "1")
         // Assert that the amount is approximately equal to $16.67
         val amountJane = bobOwedPerUser - janeDept.amount
         assert(abs(amountJane) <= 0.000001)
@@ -226,44 +202,16 @@ class ExpenseCalculatorTest {
         // Bob owes John $16.67
         val johnDept = debts[1]
         assert(johnDept.debtorUid == "3")
-        assert(johnDept.creditorUid == "1")
+        assert(johnDept.creditorUid == "2")
         // Assert that the amount is approximately equal to $16.67
         val amountJohn = bobOwedPerUser - johnDept.amount
         assert(abs(amountJohn) <= 0.000001)
     }
 
     @Test
-    fun calculateBalancesAndSettleTestWithBob() {
-        val users = listOf(
-            User(
-                uid = "1",
-                userName = "john_doe",
-                fullName = "John Doe",
-                email = "john@example.com",
-                gender = "male",
-                lastLogin = Timestamp.now(),
-                registrationDate = Timestamp.now()
-            ),
-            User(
-                uid = "2",
-                userName = "jane_doe",
-                fullName = "Jane Doe",
-                email = "jane@example.com",
-                gender = "female",
-                lastLogin = Timestamp.now(),
-                registrationDate = Timestamp.now()
-            ),
-            User(
-                uid = "3",
-                userName = "bob",
-                fullName = "Bob Smith",
-                email = "bob@example.com",
-                gender = "male",
-                lastLogin = Timestamp.now(),
-                registrationDate = Timestamp.now()
-            )
-        )
-
+    fun calculateBalancesAndSettleTest() {
+        // For simplicity, we gave names to user IDs
+        // John = 1, Jane = 2, Bob = 3
         val expenses = listOf(
             Expense(
                 uid = "1",
@@ -277,8 +225,9 @@ class ExpenseCalculatorTest {
                     "2" to 0.4,  // Jane pays 40%
                     "3" to 0.2   // Bob pays 20%
                 ),
-                ownerUid = "1",
-                groupUid = "1",
+                ownerIdentifier = UserIdentifier("1"),
+                groupIdentifier = GroupIdentifier("1"),
+                userIdentifiers = listOf("1", "2", "3").map { UserIdentifier(it) },
                 createdAt = Timestamp.now()
             ),
             Expense(
@@ -293,8 +242,9 @@ class ExpenseCalculatorTest {
                     "2" to 0.2,  // Jane pays 20%
                     "3" to 0.4   // Bob pays 40%
                 ),
-                ownerUid = "2",
-                groupUid = "1",
+                ownerIdentifier = UserIdentifier("2"),
+                groupIdentifier = GroupIdentifier("1"),
+                userIdentifiers = listOf("1", "2", "3").map { UserIdentifier(it) },
                 createdAt = Timestamp.now()
             )
         )
@@ -302,7 +252,7 @@ class ExpenseCalculatorTest {
         val expenseCalculator = ExpenseCalculator()
 
         val debts =
-            expenseCalculator.calculateBalancesAndSettle(users, expenses, GroupIdentifier("1"))
+            expenseCalculator.calculateAllDebts(expenses)
 
         debts.forEach { debt ->
             println("${debt.debtorUid} owes ${debt.creditorUid} ${debt.amount}")

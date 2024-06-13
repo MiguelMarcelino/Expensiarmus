@@ -61,8 +61,9 @@ class ExpenseConnector : Connector<Expense> {
             status = item.status,
             tags = item.tags,
             expenseShare = item.expenseShare,
-            ownerId = item.ownerUid,
-            groupId = item.groupUid
+            ownerIdentifier = item.ownerIdentifier,
+            groupIdentifier = item.groupIdentifier,
+            userIdentifiers = item.userIdentifiers,
         )
 
         // Add a new document with a generated ID
@@ -87,8 +88,8 @@ class ExpenseConnector : Connector<Expense> {
         item.currency.let { updates["currency"] = it }
         item.status.let { updates["status"] = it }
         item.tags.let { updates["tags"] = it }
-        item.ownerUid.let { updates["ownerId"] = it }
-        item.groupUid.let { updates["groupId"] = it }
+        item.ownerIdentifier.let { updates["ownerId"] = it }
+        item.groupIdentifier.let { updates["groupId"] = it }
 
         // Update the document
         db.collection("expenses")

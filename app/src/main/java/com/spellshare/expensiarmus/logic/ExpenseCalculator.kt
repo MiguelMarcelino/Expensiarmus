@@ -22,10 +22,11 @@ class ExpenseCalculator {
         }
 
         // Calculate total expense and each user's contribution
-        expenses.filter { it.groupUid == groupId.uid }.forEach { expense ->
-            val ownerId = expense.ownerUid
+        expenses.filter { it.groupIdentifier == groupId }.forEach { expense ->
+            val ownerId = expense.ownerIdentifier
             // The owner is owed the value of the expense
-            userBalances[ownerId] = userBalances[ownerId]?.plus(expense.amount) ?: expense.amount
+            userBalances[ownerId.uid] =
+                userBalances[ownerId.uid]?.plus(expense.amount) ?: expense.amount
         }
 
         val totalExpense = userBalances.values.sum()
@@ -40,51 +41,65 @@ class ExpenseCalculator {
         return userBalances.map { Balance(it.key, it.value) }
     }
 
-    fun calculateBalancesAndSettle(
-        users: List<User>,
-        expenses: List<Expense>,
-        groupIdentifier: GroupIdentifier
-    ): List<Debt> {
+    fun calculateDebt(expense: Expense): List<Debt> {
         val userBalances = mutableMapOf<String, Double>()
 
+        val userIdentifiers = expense.userIdentifiers
+
         // Initialize balances for each user
-        users.forEach { user ->
-            userBalances[user.uid] = 0.0
+        userIdentifiers.forEach { userId ->
+            userBalances[userId.uid] = 0.0
         }
 
         // Calculate each user's net balance
-        expenses.filter { it.groupUid == groupIdentifier.uid }.forEach { expense ->
-            val ownerId = expense.ownerUid
-            val totalExpense = expense.amount
-            val expenseShare = expense.expenseShare
-
-            if (expenseShare == null) {
-                // Original algorithm: owner pays the total amount
-                userBalances[ownerId] = userBalances[ownerId]?.plus(totalExpense) ?: totalExpense
-            } else {
-                // New algorithm: distribute the expense based on percentage shares
-                // The owner paid the total amount
-                userBalances[ownerId] = userBalances[ownerId]?.plus(totalExpense) ?: totalExpense
-
-                // Distribute the expense based on percentage shares
-                expenseShare.forEach { (userId, shareFraction) ->
-                    val shareAmount = totalExpense * shareFraction
-                    userBalances[userId] = userBalances[userId]?.minus(shareAmount) ?: -shareAmount
-                }
+        if (expense.expenseShare != null) {
+            expense.expenseShare!!.forEach { (userId, sharePercentage) ->
+                val shareAmount = expense.amount * sharePercentage
+                userBalances[userId] = userBalances[userId]?.minus(shareAmount) ?: -shareAmount
+                userBalances[expense.ownerIdentifier.uid] =
+                    userBalances[expense.ownerIdentifier.uid]?.plus(shareAmount) ?: shareAmount
             }
+        } else {
+            // If expenseShare is null, the owner pays the total amount
+            userBalances[expense.ownerIdentifier.uid] =
+                userBalances[expense.ownerIdentifier.uid]?.plus(expense.amount) ?: expense.amount
         }
 
         // Calculate total expense and fair share per user
         val totalExpense = userBalances.values.sum()
-        val sharePerUser = totalExpense / users.size
+        val sharePerUser = totalExpense / userIdentifiers.size
 
         // Calculate net balances for each user
-        users.forEach { user ->
-            val paidAmount = userBalances[user.uid] ?: 0.0
-            userBalances[user.uid] = paidAmount - sharePerUser
+        userIdentifiers.forEach { userId ->
+            val paidAmount = userBalances[userId.uid] ?: 0.0
+            userBalances[userId.uid] = paidAmount - sharePerUser
         }
 
-        // Sort users by their balances
+        return calculateDebtsFromBalance(userBalances)
+    }
+
+    fun calculateAllDebts(expenses: List<Expense>): List<Debt> {
+        val aggregateDebts = mutableListOf<Debt>()
+        val userBalances = mutableMapOf<String, Double>()
+
+        // Calculate debts for each expense and aggregate them
+        expenses.forEach { expense ->
+            val debts = calculateDebt(expense)
+            aggregateDebts.addAll(debts)
+        }
+
+        // Update the user balances based on the debts
+        aggregateDebts.forEach { debt ->
+            userBalances[debt.debtorUid] =
+                userBalances.getOrDefault(debt.debtorUid, 0.0) - debt.amount
+            userBalances[debt.creditorUid] =
+                userBalances.getOrDefault(debt.creditorUid, 0.0) + debt.amount
+        }
+
+        return calculateDebtsFromBalance(userBalances)
+    }
+
+    private fun calculateDebtsFromBalance(userBalances: Map<String, Double>): List<Debt> {
         val sortedUsers = userBalances.toList().sortedBy { (_, balance) -> balance }.toMutableList()
 
         // Settle debts between users

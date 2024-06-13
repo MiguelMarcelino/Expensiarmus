@@ -1,6 +1,8 @@
 package com.spellshare.expensiarmus.data
 
 import com.google.firebase.Timestamp
+import com.spellshare.expensiarmus.data.identifiers.GroupIdentifier
+import com.spellshare.expensiarmus.data.identifiers.UserIdentifier
 import java.util.UUID
 
 data class Expense(
@@ -11,8 +13,9 @@ data class Expense(
     var status: String,
     var tags: List<String>,
     var expenseShare: Map<String, Double>?,
-    var ownerUid: String,
-    var groupUid: String,
+    var ownerIdentifier: UserIdentifier,
+    var groupIdentifier: GroupIdentifier,
+    var userIdentifiers: List<UserIdentifier>,
     var createdAt: Timestamp
 ) {
     constructor() : this(
@@ -23,8 +26,9 @@ data class Expense(
         status = "",
         tags = listOf(),
         expenseShare = mapOf(),
-        ownerUid = "",
-        groupUid = "",
+        ownerIdentifier = UserIdentifier(""),
+        groupIdentifier = GroupIdentifier(""),
+        userIdentifiers = listOf(),
         createdAt = Timestamp.now()
     )
 
@@ -35,8 +39,9 @@ data class Expense(
         status: String,
         tags: List<String>,
         expenseShare: Map<String, Double>?,
-        ownerId: String,
-        groupId: String
+        ownerIdentifier: UserIdentifier,
+        groupIdentifier: GroupIdentifier,
+        userIdentifiers: List<UserIdentifier>
     ) : this(
         uid = UUID.randomUUID().toString(),
         amount = amount,
@@ -45,8 +50,9 @@ data class Expense(
         status = status,
         tags = tags,
         expenseShare = expenseShare,
-        ownerUid = ownerId,
-        groupUid = groupId,
+        ownerIdentifier = ownerIdentifier,
+        groupIdentifier = groupIdentifier,
+        userIdentifiers = userIdentifiers,
         createdAt = Timestamp.now()
     )
 }
