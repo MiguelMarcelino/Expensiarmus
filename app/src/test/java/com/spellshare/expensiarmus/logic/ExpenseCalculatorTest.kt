@@ -39,7 +39,7 @@ class ExpenseCalculatorTest {
                 description = "Dinner",
                 currency = "USD",
                 status = "paid",
-                tags = "",
+                tags = listOf("food"),
                 ownerUid = "1",
                 groupUid = "1",
                 createdAt = Timestamp.now()
@@ -50,7 +50,7 @@ class ExpenseCalculatorTest {
                 description = "Taxi",
                 currency = "USD",
                 status = "paid",
-                tags = "",
+                tags = listOf("transportation"),
                 ownerUid = "2",
                 groupUid = "1",
                 createdAt = Timestamp.now()
@@ -87,7 +87,7 @@ class ExpenseCalculatorTest {
                 description = "Dinner",
                 currency = "USD",
                 status = "paid",
-                tags = "",
+                tags = listOf("food"),
                 ownerUid = "1",
                 groupUid = "1",
                 createdAt = Timestamp.now()
@@ -98,7 +98,7 @@ class ExpenseCalculatorTest {
                 description = "Taxi",
                 currency = "USD",
                 status = "paid",
-                tags = "",
+                tags = listOf("transportation"),
                 ownerUid = "1",
                 groupUid = "1",
                 createdAt = Timestamp.now()
@@ -176,7 +176,7 @@ class ExpenseCalculatorTest {
                 description = "Taxi",
                 currency = "USD",
                 status = "paid",
-                tags = "",
+                tags = listOf("transportation"),
                 ownerUid = "1",
                 groupUid = "1",
                 createdAt = Timestamp.now()
@@ -187,7 +187,7 @@ class ExpenseCalculatorTest {
                 description = "Taxi",
                 currency = "USD",
                 status = "paid",
-                tags = "",
+                tags = listOf("transportation"),
                 ownerUid = "2",
                 groupUid = "1",
                 createdAt = Timestamp.now()
@@ -196,7 +196,8 @@ class ExpenseCalculatorTest {
 
         val expenseCalculator = ExpenseCalculator()
 
-        val debts = expenseCalculator.calculateBalancesAndSettle(users, expenses, GroupIdentifier("1"))
+        val debts =
+            expenseCalculator.calculateBalancesAndSettle(users, expenses, GroupIdentifier("1"))
 
         println(debts)
 
