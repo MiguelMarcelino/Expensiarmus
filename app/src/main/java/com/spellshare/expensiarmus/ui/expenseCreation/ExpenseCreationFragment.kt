@@ -2,25 +2,29 @@ package com.spellshare.expensiarmus.ui.expenseCreation
 
 import android.content.Context
 import android.os.Bundle
+import android.text.InputType
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.spellshare.expensiarmus.R
 import com.spellshare.expensiarmus.data.Expense
 import com.spellshare.expensiarmus.data.identifiers.ExpenseIdentifier
+import com.spellshare.expensiarmus.data.identifiers.GroupIdentifier
 import com.spellshare.expensiarmus.databinding.FragmentExpenseCreationBinding
 import com.spellshare.expensiarmus.dbconnector.ExpenseConnector
+import com.spellshare.expensiarmus.dbconnector.GroupConnector
 import com.spellshare.expensiarmus.exceptions.RequiredDataException
 
 class ExpenseCreationFragment : Fragment() {
 
     private var _binding: FragmentExpenseCreationBinding? = null
-
     private val binding get() = _binding!!
 
     private lateinit var expenseAmount: EditText
@@ -29,6 +33,8 @@ class ExpenseCreationFragment : Fragment() {
     private lateinit var expenseStatus: EditText
     private lateinit var expenseTags: EditText
     private lateinit var saveButton: Button
+
+    private var groupUid: String? = null
 
     private var expenseItem: Expense? = null
 
@@ -39,18 +45,18 @@ class ExpenseCreationFragment : Fragment() {
         _binding = FragmentExpenseCreationBinding.inflate(inflater, container, false)
         val root: View = binding.root
 
-        expenseAmount = root.findViewById(R.id.expenseAmount)
-        expenseDescription = root.findViewById(R.id.expenseDescription)
-        expenseCurrency = root.findViewById(R.id.expenseCurrency)
-        expenseStatus = root.findViewById(R.id.expenseStatus)
-        expenseTags = root.findViewById(R.id.expenseTags)
-        saveButton = root.findViewById(R.id.saveButton)
+        expenseAmount = binding.expenseAmount
+        expenseDescription = binding.expenseDescription
+        expenseCurrency = binding.expenseCurrency
+        expenseStatus = binding.expenseStatus
+        expenseTags = binding.expenseTags
+        saveButton = binding.saveButton
 
         val expenseConnector = ExpenseConnector()
 
         val uid = arguments?.getString("uid")
         val ownerUid = arguments?.getString("ownerUid")
-        val groupUid = arguments?.getString("groupUid")
+        groupUid = arguments?.getString("groupUid")
 
         if (uid != null) {
             val identifier = ExpenseIdentifier(uid)
@@ -71,13 +77,46 @@ class ExpenseCreationFragment : Fragment() {
         return root
     }
 
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+
+        val groupConnector = GroupConnector()
+        val memberIds = groupUid?.let {
+            val group = groupConnector.getItem(GroupIdentifier(it))
+            group?.userIds ?: emptyList()
+        } ?: emptyList()
+
+
+        val expenseShareLayout = view.findViewById<LinearLayout>(R.id.expenseShareLayout)
+
+        // Dynamically add EditText fields for each member
+        memberIds.forEach { memberId ->
+            val textView = TextView(view.context)
+            textView.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            textView.text = "Member $memberId"
+
+            val editText = EditText(view.context)
+            editText.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            editText.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+            editText.hint = "Percentage for $memberId"
+
+            expenseShareLayout.addView(textView)
+            expenseShareLayout.addView(editText)
+        }
+    }
+
     private fun populateFields(expenseItem: Expense?) {
         expenseItem?.let {
             expenseAmount.setText(it.amount.toString())
             expenseDescription.setText(it.description)
             expenseCurrency.setText(it.currency)
             expenseStatus.setText(it.status)
-            expenseTags.setText(it.tags.toString())
+            expenseTags.setText(it.tags.joinToString(", "))
         }
     }
 
