@@ -1,6 +1,7 @@
 package com.spellshare.expensiarmus.data
 
 import com.google.firebase.Timestamp
+import com.spellshare.expensiarmus.data.identifiers.UserIdentifier
 import java.util.UUID
 
 data class Group(
@@ -8,7 +9,7 @@ data class Group(
     val name: String,
     val description: String?,
     val ownerUid: String,
-    val userIds: List<String>,
+    val userIds: List<UserIdentifier>,
     val createdAt: Timestamp = Timestamp.now(),
     val updatedAt: Timestamp = Timestamp.now()
 ) {
@@ -38,7 +39,7 @@ data class Group(
         name: String,
         description: String?,
         ownerUid: String,
-        userIds: List<String>
+        userIds: List<UserIdentifier>
     ) : this(
         uid = uid,
         name = name,
