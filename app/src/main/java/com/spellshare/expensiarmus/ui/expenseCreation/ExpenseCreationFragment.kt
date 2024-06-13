@@ -98,6 +98,7 @@ class ExpenseCreationFragment : Fragment() {
                 currency = expenseCurrency.text.toString(),
                 status = expenseStatus.text.toString(),
                 tags = expenseTags.text.toString().split(","),
+                expenseShare = mapOf(), // TODO: Parse map from UI
                 ownerId = ownerUid,
                 groupId = groupUid
             )
@@ -113,6 +114,7 @@ class ExpenseCreationFragment : Fragment() {
                 currency = expenseCurrency.text.toString(),
                 status = expenseStatus.text.toString(),
                 tags = listOf(expenseTags.text.toString()),
+                expenseShare = mapOf(), // TODO: Parse map from UI
                 ownerUid = expenseItem!!.ownerUid,
                 groupUid = expenseItem!!.groupUid,
                 createdAt = expenseItem!!.createdAt

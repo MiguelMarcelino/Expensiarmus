@@ -4,6 +4,7 @@ import com.spellshare.expensiarmus.data.Expense
 import com.spellshare.expensiarmus.data.User
 import com.spellshare.expensiarmus.data.identifiers.GroupIdentifier
 import com.google.firebase.Timestamp
+import com.spellshare.expensiarmus.data.Debt
 import org.junit.Test
 import kotlin.math.abs
 
@@ -40,6 +41,7 @@ class ExpenseCalculatorTest {
                 currency = "USD",
                 status = "paid",
                 tags = listOf("food"),
+                expenseShare = mapOf("1" to 0.5, "2" to 0.5),
                 ownerUid = "1",
                 groupUid = "1",
                 createdAt = Timestamp.now()
@@ -51,6 +53,7 @@ class ExpenseCalculatorTest {
                 currency = "USD",
                 status = "paid",
                 tags = listOf("transportation"),
+                expenseShare = mapOf("1" to 0.5, "2" to 0.5),
                 ownerUid = "2",
                 groupUid = "1",
                 createdAt = Timestamp.now()
@@ -88,6 +91,7 @@ class ExpenseCalculatorTest {
                 currency = "USD",
                 status = "paid",
                 tags = listOf("food"),
+                expenseShare = mapOf("1" to 0.5, "2" to 0.5),
                 ownerUid = "1",
                 groupUid = "1",
                 createdAt = Timestamp.now()
@@ -99,6 +103,7 @@ class ExpenseCalculatorTest {
                 currency = "USD",
                 status = "paid",
                 tags = listOf("transportation"),
+                expenseShare = mapOf("1" to 0.5, "2" to 0.5),
                 ownerUid = "1",
                 groupUid = "1",
                 createdAt = Timestamp.now()
@@ -177,6 +182,7 @@ class ExpenseCalculatorTest {
                 currency = "USD",
                 status = "paid",
                 tags = listOf("transportation"),
+                expenseShare = null,
                 ownerUid = "1",
                 groupUid = "1",
                 createdAt = Timestamp.now()
@@ -188,6 +194,7 @@ class ExpenseCalculatorTest {
                 currency = "USD",
                 status = "paid",
                 tags = listOf("transportation"),
+                expenseShare = null,
                 ownerUid = "2",
                 groupUid = "1",
                 createdAt = Timestamp.now()
@@ -223,5 +230,96 @@ class ExpenseCalculatorTest {
         // Assert that the amount is approximately equal to $16.67
         val amountJohn = bobOwedPerUser - johnDept.amount
         assert(abs(amountJohn) <= 0.000001)
+    }
+
+    @Test
+    fun calculateBalancesAndSettleTestWithBob() {
+        val users = listOf(
+            User(
+                uid = "1",
+                userName = "john_doe",
+                fullName = "John Doe",
+                email = "john@example.com",
+                gender = "male",
+                lastLogin = Timestamp.now(),
+                registrationDate = Timestamp.now()
+            ),
+            User(
+                uid = "2",
+                userName = "jane_doe",
+                fullName = "Jane Doe",
+                email = "jane@example.com",
+                gender = "female",
+                lastLogin = Timestamp.now(),
+                registrationDate = Timestamp.now()
+            ),
+            User(
+                uid = "3",
+                userName = "bob",
+                fullName = "Bob Smith",
+                email = "bob@example.com",
+                gender = "male",
+                lastLogin = Timestamp.now(),
+                registrationDate = Timestamp.now()
+            )
+        )
+
+        val expenses = listOf(
+            Expense(
+                uid = "1",
+                amount = 100.0,
+                description = "Dinner",
+                currency = "USD",
+                status = "paid",
+                tags = listOf("food"),
+                expenseShare = mapOf(
+                    "1" to 0.4,  // John pays 40%
+                    "2" to 0.4,  // Jane pays 40%
+                    "3" to 0.2   // Bob pays 20%
+                ),
+                ownerUid = "1",
+                groupUid = "1",
+                createdAt = Timestamp.now()
+            ),
+            Expense(
+                uid = "2",
+                amount = 50.0,
+                description = "Taxi",
+                currency = "USD",
+                status = "paid",
+                tags = listOf("transport"),
+                expenseShare = mapOf(
+                    "1" to 0.4,  // John pays 40%
+                    "2" to 0.2,  // Jane pays 20%
+                    "3" to 0.4   // Bob pays 40%
+                ),
+                ownerUid = "2",
+                groupUid = "1",
+                createdAt = Timestamp.now()
+            )
+        )
+
+        val expenseCalculator = ExpenseCalculator()
+
+        val debts =
+            expenseCalculator.calculateBalancesAndSettle(users, expenses, GroupIdentifier("1"))
+
+        debts.forEach { debt ->
+            println("${debt.debtorUid} owes ${debt.creditorUid} ${debt.amount}")
+        }
+
+        // Expected debts:
+        // John paid 100 euros
+        //  - Bob pays 20
+        //  - Jane pays 40
+        // Jane paid 50 euros
+        //  - Bob pays 20
+        //  - John pays 20
+        //
+        // Jane was going to pay 20 euros to John, and Bob was going to pay 20 euros to Jane and 20 euros to John,
+        // To minimize transactions, Bob pays 40 euros to John
+
+        assert(debts.size == 1)
+        assert(debts.contains(Debt("3", "1", 40.0)))
     }
 }
