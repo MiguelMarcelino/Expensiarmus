@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -24,11 +25,10 @@
         android:layout_height="wrap_content"
         android:text="Description" />
 
-    <!-- RecyclerView for Expenses -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerViewExpenses"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
+        android:layout_height="match_parent"
         android:layout_weight="1"
         android:clipToPadding="false"
         android:paddingBottom="16dp" />
@@ -41,8 +41,10 @@
         android:layout_marginEnd="@dimen/fab_margin"
         android:layout_marginBottom="16dp"
         android:contentDescription="Button to add an expense"
+        android:visibility="visible"
         app:fabSize="normal"
-        app:srcCompat="@android:drawable/ic_menu_add" />
+        app:srcCompat="@android:drawable/ic_menu_add"
+        tools:visibility="visible" />
 
     <androidx.fragment.app.FragmentContainerView
         android:id="@+id/nav_host_fragment"

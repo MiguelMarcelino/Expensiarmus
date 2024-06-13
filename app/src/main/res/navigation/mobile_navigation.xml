@@ -15,7 +15,7 @@
         android:id="@+id/nav_group"
         android:name="com.spellshare.expensiarmus.ui.group.GroupFragment"
         android:label="@string/menu_group"
-        tools:layout="@layout/fragment_group" >
+        tools:layout="@layout/item_group">
         <action
             android:id="@+id/action_nav_group_to_nav_group_detail"
             app:destination="@id/nav_group_detail" />
@@ -24,7 +24,7 @@
     <fragment
         android:id="@+id/nav_group_detail"
         android:name="com.spellshare.expensiarmus.ui.groupDetail.GroupDetailFragment"
-        tools:layout="@layout/fragment_group_detail" >
+        tools:layout="@layout/fragment_group_detail">
         <action
             android:id="@+id/action_nav_group_detail_to_nav_expense_detail"
             app:destination="@id/nav_expense_detail" />
@@ -33,5 +33,5 @@
     <fragment
         android:id="@+id/nav_expense_detail"
         android:name="com.spellshare.expensiarmus.ui.expenseCreation.ExpenseCreationFragment"
-        tools:layout="@layout/fragment_expense_creation"/>
+        tools:layout="@layout/fragment_expense_creation" />
 </navigation>
