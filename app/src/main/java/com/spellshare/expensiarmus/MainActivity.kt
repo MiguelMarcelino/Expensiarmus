@@ -6,12 +6,9 @@ import android.view.Menu
 import android.view.MenuItem
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
-import androidx.drawerlayout.widget.DrawerLayout
+import androidx.navigation.NavController
 import androidx.navigation.findNavController
 import androidx.navigation.fragment.NavHostFragment
-import androidx.navigation.ui.AppBarConfiguration
-import androidx.navigation.ui.navigateUp
-import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.spellshare.expensiarmus.databinding.ActivityMainBinding
@@ -20,6 +17,7 @@ import com.google.firebase.FirebaseApp
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+    private lateinit var navController: NavController
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,7 +32,7 @@ class MainActivity : AppCompatActivity() {
             Log.e("MainActivity", "NavHostFragment not found")
             return
         }
-        val navController = navHostFragment.navController
+        navController = navHostFragment.navController
 
         // Set up the bottom navigation bar
         val navView: BottomNavigationView = findViewById(R.id.bottom_navigation)
@@ -70,7 +68,8 @@ class MainActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.action_add_group -> {
-                // Handle add group action
+                // Go to group creation fragment
+                navController.navigate(R.id.action_nav_home_to_createGroupFragment)
                 true
             }
 

@@ -9,6 +9,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.findNavController
 import com.spellshare.expensiarmus.R
 import com.spellshare.expensiarmus.data.Expense
 import com.spellshare.expensiarmus.data.identifiers.ExpenseIdentifier
@@ -101,6 +102,7 @@ class ExpenseCreationFragment : Fragment() {
                 groupId = groupUid
             )
             expenseConnector.addItem(newExpenseItem)
+            findNavController().navigateUp()
         } else {
             // We use the existing uid to update the item
             // The fields ownerId, groupId and createdAt are not updated
@@ -116,6 +118,7 @@ class ExpenseCreationFragment : Fragment() {
                 createdAt = expenseItem!!.createdAt
             )
             expenseConnector.updateItem(updatedExpenseItem)
+            findNavController().navigateUp()
         }
     }
 
