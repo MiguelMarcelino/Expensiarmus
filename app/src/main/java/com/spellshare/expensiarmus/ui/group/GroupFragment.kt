@@ -31,15 +31,19 @@ class GroupFragment : Fragment() {
 
         val groupConnector = GroupConnector()
         val groupItems = groupConnector.getItems()
-        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, groupItems.map { it.name })
+        val adapter = ArrayAdapter(
+            requireContext(),
+            android.R.layout.simple_list_item_1,
+            groupItems.map { it.name })
         listView.adapter = adapter
 
         listView.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, _ ->
             val selectedItem = groupItems[position]
             val bundle = Bundle().apply {
-                putString("id", selectedItem.uid)
+                putString("uid", selectedItem.uid)
                 putString("name", selectedItem.name)
                 putString("description", selectedItem.description)
+                putString("ownerUid", selectedItem.ownerUid)
             }
             findNavController().navigate(R.id.action_nav_group_to_nav_group_detail, bundle)
         }
