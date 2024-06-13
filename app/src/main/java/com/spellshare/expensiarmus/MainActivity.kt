@@ -19,7 +19,6 @@ import com.google.firebase.FirebaseApp
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var binding: ActivityMainBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,6 +44,14 @@ class MainActivity : AppCompatActivity() {
         val toolbar: Toolbar = findViewById(R.id.toolbar)
         setSupportActionBar(toolbar)
 
+        navController.addOnDestinationChangedListener { _, destination, _ ->
+            toolbar.title = when (destination.id) {
+                R.id.nav_home -> "Home"
+                R.id.nav_group -> "Dashboard"
+                else -> ""
+            }
+        }
+
         // Initialize Firebase
         FirebaseApp.initializeApp(this)
     }
@@ -52,13 +59,23 @@ class MainActivity : AppCompatActivity() {
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         // Inflate the menu; this adds items to the action bar if it is present.
         menuInflater.inflate(R.menu.main, menu)
+
+        // Hack to make this be called Home
+        val toolbar: Toolbar = findViewById(R.id.toolbar)
+        toolbar.title = "Home"
+
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
-            android.R.id.home -> {
-                onBackPressed()  // Handle the back button press
+            R.id.action_add_group -> {
+                // Handle add group action
+                true
+            }
+
+            R.id.action_search -> {
+                // Handle search action
                 true
             }
 
