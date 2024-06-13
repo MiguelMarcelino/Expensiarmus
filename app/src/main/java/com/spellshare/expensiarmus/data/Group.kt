@@ -3,7 +3,7 @@ package com.spellshare.expensiarmus.data
 import com.google.firebase.Timestamp
 import java.util.UUID
 
-data class GroupItem(
+data class Group(
     val uid: String,
     val name: String,
     val description: String?,
