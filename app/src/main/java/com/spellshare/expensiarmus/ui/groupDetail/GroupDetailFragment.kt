@@ -7,12 +7,16 @@ import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.firebase.firestore.FirebaseFirestore
 import com.spellshare.expensiarmus.R
 import com.spellshare.expensiarmus.data.Expense
-import com.spellshare.expensiarmus.data.identifiers.GroupIdentifier
 import com.spellshare.expensiarmus.databinding.FragmentGroupDetailBinding
-import com.spellshare.expensiarmus.dbconnector.GroupExpenseConnector
-
+import com.spellshare.expensiarmus.ui.expenseCreation.ExpenseAdapter
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 
 class GroupDetailFragment : Fragment() {
 
@@ -20,8 +24,7 @@ class GroupDetailFragment : Fragment() {
     private val binding get() = _binding!!
 
     override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
+        inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
         _binding = FragmentGroupDetailBinding.inflate(inflater, container, false)
@@ -32,9 +35,11 @@ class GroupDetailFragment : Fragment() {
         val description = arguments?.getString("description")
         val ownerUid = arguments?.getString("ownerUid")
 
-        binding.textId.text = uid
+        // binding.textId.text = uid
         binding.textName.text = name
         binding.textDescription.text = description
+        // You can set the group image using Glide, Picasso, or any other image loading library
+        // Example: Glide.with(this).load(groupImageUrl).into(binding.groupImage)
 
         binding.fab.setOnClickListener {
             // We pass the UID to search for the existing expense
@@ -47,8 +52,7 @@ class GroupDetailFragment : Fragment() {
 
         // Get group expenses and display them
         uid?.let { groupId ->
-            val expenses = GroupExpenseConnector.getExpenseForGroup(GroupIdentifier(groupId))
-            displayExpenses(expenses)
+            fetchGroupExpenses(groupId)
         }
 
         return root
@@ -59,9 +63,31 @@ class GroupDetailFragment : Fragment() {
         _binding = null
     }
 
+    private fun fetchGroupExpenses(groupId: String) {
+        val db = FirebaseFirestore.getInstance()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val querySnapshot = db.collection("expenses")
+                    .whereEqualTo("groupUid", groupId)
+                    .get()
+                    .await()
+
+                val expenses =
+                    querySnapshot.documents.mapNotNull { it.toObject(Expense::class.java) }
+
+                withContext(Dispatchers.Main) {
+                    displayExpenses(expenses)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace() // Handle the error
+            }
+        }
+    }
+
     private fun displayExpenses(expenses: List<Expense>) {
         val adapter = ExpenseAdapter(expenses)
         binding.recyclerViewExpenses.layoutManager = LinearLayoutManager(context)
         binding.recyclerViewExpenses.adapter = adapter
     }
 }
+
