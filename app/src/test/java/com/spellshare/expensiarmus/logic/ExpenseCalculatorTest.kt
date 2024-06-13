@@ -43,8 +43,8 @@ class ExpenseCalculatorTest {
                 status = "paid",
                 tags = listOf("food"),
                 expenseShare = mapOf("1" to 0.5, "2" to 0.5),
-                ownerIdentifier = UserIdentifier("1"),
-                groupIdentifier = GroupIdentifier("1"),
+                ownerUid = "1",
+                groupUid = "1",
                 userIdentifiers = listOf("1", "2").map { UserIdentifier(it) },
                 createdAt = Timestamp.now()
             ),
@@ -56,8 +56,8 @@ class ExpenseCalculatorTest {
                 status = "paid",
                 tags = listOf("transportation"),
                 expenseShare = mapOf("1" to 0.5, "2" to 0.5),
-                ownerIdentifier = UserIdentifier("2"),
-                groupIdentifier = GroupIdentifier("1"),
+                ownerUid = "2",
+                groupUid = "1",
                 userIdentifiers = listOf("1", "2").map { UserIdentifier(it) },
                 createdAt = Timestamp.now()
             )
@@ -95,8 +95,8 @@ class ExpenseCalculatorTest {
                 status = "paid",
                 tags = listOf("food"),
                 expenseShare = mapOf("1" to 0.5, "2" to 0.5),
-                ownerIdentifier = UserIdentifier("1"),
-                groupIdentifier = GroupIdentifier("1"),
+                ownerUid = "1",
+                groupUid = "1",
                 userIdentifiers = listOf("1", "2").map { UserIdentifier(it) },
                 createdAt = Timestamp.now()
             ),
@@ -108,8 +108,8 @@ class ExpenseCalculatorTest {
                 status = "paid",
                 tags = listOf("transportation"),
                 expenseShare = mapOf("1" to 0.5, "2" to 0.5),
-                ownerIdentifier = UserIdentifier("1"),
-                groupIdentifier = GroupIdentifier("1"),
+                ownerUid = "1",
+                groupUid = "1",
                 userIdentifiers = listOf("1", "2").map { UserIdentifier(it) },
                 createdAt = Timestamp.now()
             )
@@ -160,8 +160,8 @@ class ExpenseCalculatorTest {
                 status = "paid",
                 tags = listOf("transportation"),
                 expenseShare = null,
-                ownerIdentifier = UserIdentifier("1"),
-                groupIdentifier = GroupIdentifier("1"),
+                ownerUid = "1",
+                groupUid = "1",
                 userIdentifiers = listOf("1", "2", "3").map { UserIdentifier(it) },
                 createdAt = Timestamp.now()
             ),
@@ -173,8 +173,8 @@ class ExpenseCalculatorTest {
                 status = "paid",
                 tags = listOf("transportation"),
                 expenseShare = null,
-                ownerIdentifier = UserIdentifier("2"),
-                groupIdentifier = GroupIdentifier("1"),
+                ownerUid = "2",
+                groupUid = "1",
                 userIdentifiers = listOf("1", "2", "3").map { UserIdentifier(it) },
                 createdAt = Timestamp.now()
             )
@@ -225,8 +225,8 @@ class ExpenseCalculatorTest {
                     "2" to 0.4,  // Jane pays 40%
                     "3" to 0.2   // Bob pays 20%
                 ),
-                ownerIdentifier = UserIdentifier("1"),
-                groupIdentifier = GroupIdentifier("1"),
+                ownerUid = "1",
+                groupUid = "1",
                 userIdentifiers = listOf("1", "2", "3").map { UserIdentifier(it) },
                 createdAt = Timestamp.now()
             ),
@@ -242,8 +242,8 @@ class ExpenseCalculatorTest {
                     "2" to 0.2,  // Jane pays 20%
                     "3" to 0.4   // Bob pays 40%
                 ),
-                ownerIdentifier = UserIdentifier("2"),
-                groupIdentifier = GroupIdentifier("1"),
+                ownerUid = "2",
+                groupUid = "1",
                 userIdentifiers = listOf("1", "2", "3").map { UserIdentifier(it) },
                 createdAt = Timestamp.now()
             )

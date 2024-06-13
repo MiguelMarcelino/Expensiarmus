@@ -17,7 +17,6 @@ import com.spellshare.expensiarmus.R
 import com.spellshare.expensiarmus.data.Expense
 import com.spellshare.expensiarmus.data.identifiers.ExpenseIdentifier
 import com.spellshare.expensiarmus.data.identifiers.GroupIdentifier
-import com.spellshare.expensiarmus.data.identifiers.UserIdentifier
 import com.spellshare.expensiarmus.databinding.FragmentExpenseCreationBinding
 import com.spellshare.expensiarmus.dbconnector.ExpenseConnector
 import com.spellshare.expensiarmus.dbconnector.GroupConnector
@@ -138,10 +137,10 @@ class ExpenseCreationFragment : Fragment() {
                 currency = expenseCurrency.text.toString(),
                 status = expenseStatus.text.toString(),
                 tags = expenseTags.text.toString().split(","),
-                expenseShare = mapOf(), // TODO: Parse map from UI
-                ownerIdentifier = UserIdentifier(ownerUid),
-                groupIdentifier = GroupIdentifier(groupUid),
-                userIdentifiers = emptyList() // TODO: Parse users from UI
+                expenseShare = mapOf<String, Double>(), // TODO: Parse map from UI
+                ownerUid = ownerUid,
+                groupUid = groupUid,
+                userUids = emptyList<String>() // TODO: Parse users from UI
             )
             expenseConnector.addItem(newExpenseItem)
             findNavController().navigateUp()
@@ -156,9 +155,9 @@ class ExpenseCreationFragment : Fragment() {
                 status = expenseStatus.text.toString(),
                 tags = listOf(expenseTags.text.toString()),
                 expenseShare = mapOf(), // TODO: Parse map from UI
-                ownerIdentifier = expenseItem!!.ownerIdentifier,
-                groupIdentifier = expenseItem!!.groupIdentifier,
-                userIdentifiers = expenseItem!!.userIdentifiers, // TODO: Parse users from UI
+                ownerUid = expenseItem!!.ownerUid,
+                groupUid = expenseItem!!.groupUid,
+                userUids = expenseItem!!.userUids, // TODO: Parse users from UI
                 createdAt = expenseItem!!.createdAt
             )
             expenseConnector.updateItem(updatedExpenseItem)

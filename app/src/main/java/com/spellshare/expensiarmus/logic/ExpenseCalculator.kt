@@ -22,11 +22,11 @@ class ExpenseCalculator {
         }
 
         // Calculate total expense and each user's contribution
-        expenses.filter { it.groupIdentifier == groupId }.forEach { expense ->
-            val ownerId = expense.ownerIdentifier
+        expenses.filter { it.groupUid == groupId.uid }.forEach { expense ->
+            val ownerUid = expense.ownerUid
             // The owner is owed the value of the expense
-            userBalances[ownerId.uid] =
-                userBalances[ownerId.uid]?.plus(expense.amount) ?: expense.amount
+            userBalances[ownerUid] =
+                userBalances[ownerUid]?.plus(expense.amount) ?: expense.amount
         }
 
         val totalExpense = userBalances.values.sum()
@@ -44,11 +44,11 @@ class ExpenseCalculator {
     fun calculateDebt(expense: Expense): List<Debt> {
         val userBalances = mutableMapOf<String, Double>()
 
-        val userIdentifiers = expense.userIdentifiers
+        val userIdentifiers = expense.userUids
 
         // Initialize balances for each user
-        userIdentifiers.forEach { userId ->
-            userBalances[userId.uid] = 0.0
+        userIdentifiers.forEach { userUid ->
+            userBalances[userUid] = 0.0
         }
 
         // Calculate each user's net balance
@@ -56,13 +56,13 @@ class ExpenseCalculator {
             expense.expenseShare!!.forEach { (userId, sharePercentage) ->
                 val shareAmount = expense.amount * sharePercentage
                 userBalances[userId] = userBalances[userId]?.minus(shareAmount) ?: -shareAmount
-                userBalances[expense.ownerIdentifier.uid] =
-                    userBalances[expense.ownerIdentifier.uid]?.plus(shareAmount) ?: shareAmount
+                userBalances[expense.ownerUid] =
+                    userBalances[expense.ownerUid]?.plus(shareAmount) ?: shareAmount
             }
         } else {
             // If expenseShare is null, the owner pays the total amount
-            userBalances[expense.ownerIdentifier.uid] =
-                userBalances[expense.ownerIdentifier.uid]?.plus(expense.amount) ?: expense.amount
+            userBalances[expense.ownerUid] =
+                userBalances[expense.ownerUid]?.plus(expense.amount) ?: expense.amount
         }
 
         // Calculate total expense and fair share per user
@@ -70,9 +70,9 @@ class ExpenseCalculator {
         val sharePerUser = totalExpense / userIdentifiers.size
 
         // Calculate net balances for each user
-        userIdentifiers.forEach { userId ->
-            val paidAmount = userBalances[userId.uid] ?: 0.0
-            userBalances[userId.uid] = paidAmount - sharePerUser
+        userIdentifiers.forEach { userUid ->
+            val paidAmount = userBalances[userUid] ?: 0.0
+            userBalances[userUid] = paidAmount - sharePerUser
         }
 
         return calculateDebtsFromBalance(userBalances)

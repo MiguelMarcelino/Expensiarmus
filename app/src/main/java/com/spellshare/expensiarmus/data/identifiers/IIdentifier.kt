@@ -1,5 +1,8 @@
 package com.spellshare.expensiarmus.data.identifiers
 
+import com.google.firebase.firestore.IgnoreExtraProperties
+
+@IgnoreExtraProperties
 interface IIdentifier : Comparable<IIdentifier> {
     val uid: String
 
