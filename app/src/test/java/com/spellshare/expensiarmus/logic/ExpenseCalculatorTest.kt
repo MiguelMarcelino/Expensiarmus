@@ -45,7 +45,7 @@ class ExpenseCalculatorTest {
                 expenseShare = mapOf("1" to 0.5, "2" to 0.5),
                 ownerUid = "1",
                 groupUid = "1",
-                userIdentifiers = listOf("1", "2").map { UserIdentifier(it) },
+                userUids = listOf("1", "2"),
                 createdAt = Timestamp.now()
             ),
             Expense(
@@ -58,7 +58,7 @@ class ExpenseCalculatorTest {
                 expenseShare = mapOf("1" to 0.5, "2" to 0.5),
                 ownerUid = "2",
                 groupUid = "1",
-                userIdentifiers = listOf("1", "2").map { UserIdentifier(it) },
+                userUids = listOf("1", "2"),
                 createdAt = Timestamp.now()
             )
         )
@@ -97,7 +97,7 @@ class ExpenseCalculatorTest {
                 expenseShare = mapOf("1" to 0.5, "2" to 0.5),
                 ownerUid = "1",
                 groupUid = "1",
-                userIdentifiers = listOf("1", "2").map { UserIdentifier(it) },
+                userUids = listOf("1", "2"),
                 createdAt = Timestamp.now()
             ),
             Expense(
@@ -110,7 +110,7 @@ class ExpenseCalculatorTest {
                 expenseShare = mapOf("1" to 0.5, "2" to 0.5),
                 ownerUid = "1",
                 groupUid = "1",
-                userIdentifiers = listOf("1", "2").map { UserIdentifier(it) },
+                userUids = listOf("1", "2"),
                 createdAt = Timestamp.now()
             )
         )
@@ -162,7 +162,7 @@ class ExpenseCalculatorTest {
                 expenseShare = null,
                 ownerUid = "1",
                 groupUid = "1",
-                userIdentifiers = listOf("1", "2", "3").map { UserIdentifier(it) },
+                userUids = listOf("1", "2", "3"),
                 createdAt = Timestamp.now()
             ),
             Expense(
@@ -175,7 +175,7 @@ class ExpenseCalculatorTest {
                 expenseShare = null,
                 ownerUid = "2",
                 groupUid = "1",
-                userIdentifiers = listOf("1", "2", "3").map { UserIdentifier(it) },
+                userUids = listOf("1", "2", "3"),
                 createdAt = Timestamp.now()
             )
         )
@@ -183,8 +183,6 @@ class ExpenseCalculatorTest {
         val expenseCalculator = ExpenseCalculator()
 
         val debts = expenseCalculator.calculateAllDebts(expenses)
-
-        println(debts)
 
         // Since Bob owes both John and Jane, the calculation should go as follows
         val bobOwedTotal = 100.0 / 3
@@ -227,7 +225,7 @@ class ExpenseCalculatorTest {
                 ),
                 ownerUid = "1",
                 groupUid = "1",
-                userIdentifiers = listOf("1", "2", "3").map { UserIdentifier(it) },
+                userUids = listOf("1", "2", "3"),
                 createdAt = Timestamp.now()
             ),
             Expense(
@@ -244,7 +242,7 @@ class ExpenseCalculatorTest {
                 ),
                 ownerUid = "2",
                 groupUid = "1",
-                userIdentifiers = listOf("1", "2", "3").map { UserIdentifier(it) },
+                userUids = listOf("1", "2", "3"),
                 createdAt = Timestamp.now()
             )
         )
@@ -253,10 +251,6 @@ class ExpenseCalculatorTest {
 
         val debts =
             expenseCalculator.calculateAllDebts(expenses)
-
-        debts.forEach { debt ->
-            println("${debt.debtorUid} owes ${debt.creditorUid} ${debt.amount}")
-        }
 
         // Expected debts:
         // John paid 100 euros
