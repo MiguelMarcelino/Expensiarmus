@@ -20,13 +20,34 @@ router.get("/trips", async (req: AuthenticatedRequest, res) => {
   res.json({ trips });
 });
 
+router.get("/trips/:tripId/members", async (req: AuthenticatedRequest, res) => {
+  const paramsSchema = z.object({ tripId: z.string() });
+  const params = paramsSchema.safeParse(req.params);
+  if (!params.success) return res.status(400).json({ error: params.error.flatten() });
+  const { tripId } = params.data;
+  const userId = req.user!.id;
+
+  const trip = await prisma.trip.findFirst({
+    where: { id: tripId, OR: [{ ownerId: userId }, { members: { some: { userId } } }] },
+  });
+  if (!trip) return res.status(404).json({ error: "Trip not found or access denied" });
+
+  const members = await prisma.tripMember.findMany({
+    where: { tripId },
+    include: { user: { select: { id: true, username: true } } },
+    orderBy: { user: { username: "asc" } },
+  });
+  res.json({ members });
+});
+
 router.post("/trips", async (req: AuthenticatedRequest, res) => {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   const schema = z.object({ name: z.string().min(1).max(100) });
   const parse = schema.safeParse(req.body);
   if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
   const { name } = parse.data;
 
-  const trip = await prisma.trip.create({ data: { name, ownerId: req.user!.id } });
+  const trip = await prisma.trip.create({ data: { name, ownerId: req.user.id } });
   res.json({ trip });
 });
 

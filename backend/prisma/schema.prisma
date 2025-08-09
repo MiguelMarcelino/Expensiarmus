@@ -8,15 +8,16 @@ datasource db {
 }
 
 model User {
-  id           String        @id @default(cuid())
-  username     String        @unique
+  id           String           @id @default(cuid())
+  username     String           @unique
   passwordHash String
-  createdAt    DateTime      @default(now())
+  createdAt    DateTime         @default(now())
 
-  tripsOwned   Trip[]        @relation("TripOwner")
+  tripsOwned   Trip[]           @relation("TripOwner")
   memberships  TripMember[]
-  expenses     Expense[]     @relation("UserCreatedExpenses")
+  expenses     Expense[]        @relation("UserCreatedExpenses")
   splits       ExpenseSplit[]
+  payments     ExpensePayment[]
 }
 
 model Trip {
@@ -58,6 +59,7 @@ model Expense {
   trip         Trip          @relation(fields: [tripId], references: [id])
   createdBy    User          @relation("UserCreatedExpenses", fields: [createdById], references: [id])
   splits       ExpenseSplit[]
+  payments     ExpensePayment[]
 }
 
 model ExpenseSplit {
@@ -70,4 +72,17 @@ model ExpenseSplit {
   user      User    @relation(fields: [userId], references: [id])
 
   @@unique([expenseId, userId])
+}
+
+model ExpensePayment {
+  id          String @id @default(cuid())
+  expenseId   String
+  userId      String
+  amountCents Int
+
+  expense   Expense @relation(fields: [expenseId], references: [id])
+  user      User    @relation(fields: [userId], references: [id])
+
+  @@unique([expenseId, userId])
+  @@index([expenseId])
 }

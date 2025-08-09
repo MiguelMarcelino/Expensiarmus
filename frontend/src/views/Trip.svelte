@@ -8,6 +8,7 @@
   let tripId: string = '';
   $: tripId = params?.id || '';
 
+  type Member = { user: { id: string; username: string } };
   type Expense = {
     id: string;
     description: string;
@@ -19,8 +20,10 @@
     incurredAt: string;
     createdBy: { id: string; username: string };
     splits: { userId: string; amountCents: number }[];
+    payments?: { userId: string; amountCents: number }[];
   };
 
+  let members: Member[] = [];
   let expenses: Expense[] = [];
   let tripName = '';
   let error: string | null = null;
@@ -31,6 +34,9 @@
   let amount = '';
   let category = '';
   let expenseType = '';
+  let payerUserId: string = '';
+  let splitByUserId: Record<string, string> = {}; // userId -> amount string
+  let paidByUserId: Record<string, string> = {};  // userId -> amount string
 
   // AI form
   let aiInput = '';
@@ -39,20 +45,62 @@
   let memberUsername = '';
 
   function centsToString(c: number) { return (c / 100).toFixed(2); }
+  function sumStrings(obj: Record<string, string>): number {
+    return Object.values(obj).reduce((s, v) => s + (Number(v) || 0), 0);
+  }
 
   $: addDisabled = !tripId || description.trim().length === 0 || Number(amount) <= 0;
 
   async function load() {
     error = null;
     try {
-      const res = await api(`/trips/${tripId}/expenses`);
-      expenses = res.expenses;
+      const [membersRes, expensesRes] = await Promise.all([
+        api(`/trips/${tripId}/members`),
+        api(`/trips/${tripId}/expenses`),
+      ]);
+      members = membersRes.members;
+      expenses = expensesRes.expenses;
+      if (!payerUserId && members.length > 0) payerUserId = members[0].user.id;
       if (expenses.length > 0 && expenses[0].category) {
         tripName = expenses[0].category;
       }
+      // Initialize equal split by default
+      const participantIds = members.map((m) => m.user.id);
+      if (participantIds.length > 0 && Number(amount) > 0) {
+        const per = Number(amount) / participantIds.length;
+        splitByUserId = Object.fromEntries(participantIds.map((id) => [id, per.toFixed(2)]));
+      } else {
+        splitByUserId = Object.fromEntries(participantIds.map((id) => [id, '0']));
+      }
+      // Default payer is payerUserId covering full amount
+      paidByUserId = Object.fromEntries(participantIds.map((id) => [id, id === payerUserId ? (Number(amount) || 0).toFixed(2) : '0']));
     } catch (e: any) {
       error = e.message;
     }
+  }
+
+  function onAmountChange() {
+    const total = Number(amount) || 0;
+    const ids = members.map((m) => m.user.id);
+    if (ids.length === 0) return;
+    const per = total / ids.length || 0;
+    splitByUserId = Object.fromEntries(ids.map((id) => [id, per.toFixed(2)]));
+    paidByUserId = Object.fromEntries(ids.map((id) => [id, id === payerUserId ? total.toFixed(2) : '0']));
+  }
+
+  function onPayerChange() {
+    const total = Number(amount) || 0;
+    const ids = members.map((m) => m.user.id);
+    paidByUserId = Object.fromEntries(ids.map((id) => [id, id === payerUserId ? total.toFixed(2) : '0']));
+  }
+
+  function validTotals(): string | null {
+    const total = Number(amount) || 0;
+    const splitSum = sumStrings(splitByUserId);
+    const paidSum = sumStrings(paidByUserId);
+    if (Math.round(splitSum * 100) !== Math.round(total * 100)) return `Splits must sum to ${total.toFixed(2)}`;
+    if (Math.round(paidSum * 100) !== Math.round(total * 100)) return `Payments must sum to ${total.toFixed(2)}`;
+    return null;
   }
 
   async function addExpense() {
@@ -60,10 +108,18 @@
     const amountNum = Number(amount);
     if (!tripId) { error = 'No trip selected.'; return; }
     if (!description.trim() || !(amountNum > 0)) { error = 'Enter description and a positive amount.'; return; }
+    const totalsError = validTotals();
+    if (totalsError) { error = totalsError; return; }
     try {
+      const splits = Object.entries(splitByUserId)
+        .map(([userId, v]) => ({ userId, amount: Number(v) || 0 }))
+        .filter((s) => s.amount > 0);
+      const payments = Object.entries(paidByUserId)
+        .map(([userId, v]) => ({ userId, amount: Number(v) || 0 }))
+        .filter((p) => p.amount > 0);
       const res = await api('/expenses', {
         method: 'POST',
-        body: JSON.stringify({ tripId, description: description.trim(), amount: amountNum, category: category || undefined, expenseType: expenseType || undefined })
+        body: JSON.stringify({ tripId, description: description.trim(), amount: amountNum, category: category || undefined, expenseType: expenseType || undefined, splits, payments })
       });
       expenses = [res.expense as Expense, ...expenses];
       description = ''; amount = ''; category = ''; expenseType = '';
@@ -101,6 +157,54 @@
     }
   }
 
+  // Balance summary (who owes whom)
+  function computeBalances() {
+    const userIds = members.map((m) => m.user.id);
+    const balances: Record<string, number> = Object.fromEntries(userIds.map((id) => [id, 0]));
+    for (const e of expenses) {
+      const total = e.amountCents;
+      const splitMap: Record<string, number> = {};
+      for (const s of e.splits) splitMap[s.userId] = s.amountCents;
+      const payMap: Record<string, number> = {};
+      for (const p of e.payments || []) payMap[p.userId] = p.amountCents;
+      // If payments missing (older data), assume creator paid
+      if (Object.keys(payMap).length === 0) payMap[e.createdBy.id] = total;
+      for (const id of userIds) {
+        const owe = splitMap[id] || 0;
+        const paid = payMap[id] || 0;
+        balances[id] += paid - owe; // positive means others owe them
+      }
+    }
+    return balances;
+  }
+
+  function minimizeTransfers(balances: Record<string, number>) {
+    const creditors: { id: string; amount: number }[] = [];
+    const debtors: { id: string; amount: number }[] = [];
+    for (const [id, cents] of Object.entries(balances)) {
+      if (cents > 0) creditors.push({ id, amount: cents });
+      else if (cents < 0) debtors.push({ id, amount: -cents });
+    }
+    creditors.sort((a, b) => b.amount - a.amount);
+    debtors.sort((a, b) => b.amount - a.amount);
+
+    const transfers: { from: string; to: string; amountCents: number }[] = [];
+    let i = 0, j = 0;
+    while (i < debtors.length && j < creditors.length) {
+      const d = debtors[i];
+      const c = creditors[j];
+      const x = Math.min(d.amount, c.amount);
+      if (x > 0) transfers.push({ from: d.id, to: c.id, amountCents: x });
+      d.amount -= x; c.amount -= x;
+      if (d.amount === 0) i++;
+      if (c.amount === 0) j++;
+    }
+    return transfers;
+  }
+
+  $: balances = computeBalances();
+  $: transfers = minimizeTransfers(balances);
+
   onMount(() => {
     if (tripId) load();
   });
@@ -121,6 +225,40 @@
     </div>
   </div>
 {/if}
+
+<!-- Summary -->
+<section class="mb-4 bg-white dark:bg-gray-800 rounded shadow p-4">
+  <h2 class="font-semibold mb-2">Balances</h2>
+  <div class="text-sm grid md:grid-cols-2 gap-4">
+    <div>
+      {#each members as m}
+        <div class="flex justify-between py-1">
+          <span>{m.user.username}</span>
+          <span class="tabular-nums {balances[m.user.id] >= 0 ? 'text-green-600' : 'text-red-600'}">
+            ${centsToString(Math.abs(balances[m.user.id] || 0))}
+            {balances[m.user.id] >= 0 ? ' owed' : ' owes'}
+          </span>
+        </div>
+      {/each}
+    </div>
+    <div>
+      <div class="opacity-70 mb-1">Suggested transfers</div>
+      {#if transfers.length === 0}
+        <div class="text-sm opacity-60">All settled</div>
+      {:else}
+        {#each transfers as t}
+          <div class="py-1 text-sm">
+            <span>{members.find(x => x.user.id === t.from)?.user.username}</span>
+            <span class="opacity-70"> → </span>
+            <span>{members.find(x => x.user.id === t.to)?.user.username}</span>
+            <span class="opacity-70">: </span>
+            <span class="tabular-nums">${centsToString(t.amountCents)}</span>
+          </div>
+        {/each}
+      {/if}
+    </div>
+  </div>
+</section>
 
 <div class="grid md:grid-cols-3 gap-6 mt-2">
   <div class="md:col-span-2 space-y-4">
@@ -144,9 +282,40 @@
     <div class="bg-white dark:bg-gray-800 p-4 rounded shadow space-y-3">
       <h3 class="font-semibold">Add expense (manual)</h3>
       <input class="w-full border border-gray-300 dark:border-gray-600 rounded p-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 placeholder-gray-500" placeholder="Description" bind:value={description} />
-      <input type="number" min="0" step="0.01" class="w-full border border-gray-300 dark:border-gray-600 rounded p-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 placeholder-gray-500" placeholder="Amount" bind:value={amount} />
-      <input class="w-full border border-gray-300 dark:border-gray-600 rounded p-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 placeholder-gray-500" placeholder="Category (optional)" bind:value={category} />
-      <input class="w-full border border-gray-300 dark:border-gray-600 rounded p-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 placeholder-gray-500" placeholder="Type (optional)" bind:value={expenseType} />
+      <input type="number" min="0" step="0.01" class="w-full border border-gray-300 dark:border-gray-600 rounded p-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 placeholder-gray-500" placeholder="Amount" bind:value={amount} on:change={onAmountChange} />
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-xs opacity-70">Payer</label>
+          <select class="w-full border border-gray-300 dark:border-gray-600 rounded p-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100" bind:value={payerUserId} on:change={onPayerChange}>
+            {#each members as m}
+              <option value={m.user.id}>{m.user.username}</option>
+            {/each}
+          </select>
+        </div>
+      </div>
+
+      <div class="mt-2">
+        <div class="text-sm font-semibold mb-1">Who pays how much</div>
+        {#each members as m}
+          <div class="flex items-center gap-2 py-1">
+            <span class="w-28 text-sm opacity-80">{m.user.username}</span>
+            <input type="number" min="0" step="0.01" class="flex-1 border border-gray-300 dark:border-gray-600 rounded p-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 placeholder-gray-500" bind:value={paidByUserId[m.user.id]} on:input={(e) => paidByUserId[m.user.id] = (e.target as HTMLInputElement).value} />
+          </div>
+        {/each}
+        <div class="text-xs opacity-70 mt-1">Total payments: ${sumStrings(paidByUserId).toFixed(2)}</div>
+      </div>
+
+      <div class="mt-2">
+        <div class="text-sm font-semibold mb-1">Who owes how much</div>
+        {#each members as m}
+          <div class="flex items-center gap-2 py-1">
+            <span class="w-28 text-sm opacity-80">{m.user.username}</span>
+            <input type="number" min="0" step="0.01" class="flex-1 border border-gray-300 dark:border-gray-600 rounded p-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 placeholder-gray-500" bind:value={splitByUserId[m.user.id]} on:input={(e) => splitByUserId[m.user.id] = (e.target as HTMLInputElement).value} />
+          </div>
+        {/each}
+        <div class="text-xs opacity-70 mt-1">Total splits: ${sumStrings(splitByUserId).toFixed(2)}</div>
+      </div>
+
       <button class="w-full py-2 rounded bg-blue-600 text-white disabled:opacity-60 disabled:cursor-not-allowed" on:click={addExpense} disabled={addDisabled}>Add</button>
     </div>
 
