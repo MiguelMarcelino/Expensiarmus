@@ -144,6 +144,11 @@
     return unique.length === 1 ? unique[0] : null;
   }
 
+  function payerName(e: Expense): string {
+    const pid = inferPayerId(e) || e.createdBy.id;
+    return displayName(pid);
+  }
+
   function myDeltaCents(e: Expense): number {
     const mySplit = e.splits.find((s) => s.userId === me?.id)?.amountCents || 0;
     let myPaid = 0;
@@ -575,6 +580,7 @@
   $: transfers = minimizeTransfers(balances);
 
   onMount(() => {
+    incurredAtInput = nowLocalDatetime();
     if (tripId) load();
   });
 
@@ -612,7 +618,7 @@
       editPaymentMode = 'payer';
     }
     editPaidByUserId = payMap;
-    editPayerUserId = e.createdBy.id;
+    editPayerUserId = inferPayerId(e) || e.createdBy.id;
     // Seed pay percentages
     const payPct: Record<string, string> = {};
     for (const id of ids) {
@@ -822,7 +828,9 @@
                       {#if e.expenseType || e.category}
                         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-500/10 text-gray-700 dark:text-gray-200 border border-gray-500/20">{e.expenseType || e.category}</span>
                       {/if}
-                      <span class="truncate">by {e.createdBy.username}</span>
+                      <span class="truncate">paid by {payerName(e)}</span>
+                      <span class="opacity-60">·</span>
+                      <span class="truncate">added by {e.createdBy.username}</span>
                       <span class="opacity-60">·</span>
                       <span>{new Date(e.incurredAt).toLocaleString()}</span>
                     </div>

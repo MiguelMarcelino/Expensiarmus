@@ -129,12 +129,17 @@ router.post("/ai/parse", async (req: AuthenticatedRequest, res) => {
     data: participants.map((uid) => ({ expenseId: expense.id, userId: uid, amountCents: toCents(per) })),
   });
 
-  const withSplits = await prisma.expense.findUnique({
-    where: { id: expense.id },
-    include: { splits: true },
+  // Record a default payment: creator covers full amount by default for AI-added expenses
+  await prisma.expensePayment.create({
+    data: { expenseId: expense.id, userId: req.user!.id, amountCents: toCents(amountNum) },
   });
 
-  res.json({ parsed: ai, trip, expense: withSplits });
+  const withRelations = await prisma.expense.findUnique({
+    where: { id: expense.id },
+    include: { splits: true, payments: true, createdBy: { select: { id: true, username: true } } } as any,
+  });
+
+  res.json({ parsed: ai, trip, expense: withRelations });
 });
 
 export default router;
