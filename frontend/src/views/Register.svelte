@@ -2,13 +2,14 @@
   import { register } from '../lib/auth';
 
   let username = '';
+  let email = '';
   let password = '';
   let error: string | null = null;
 
   async function submit() {
     error = null;
     try {
-      await register(username, password);
+      await register(username, password, email || undefined);
       window.location.hash = '#/dashboard';
     } catch (e: any) {
       error = e.message;
@@ -23,6 +24,10 @@
     <div>
       <label class="block text-sm mb-1">Username</label>
       <input class="w-full border rounded p-2" bind:value={username} required />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">Email (optional)</label>
+      <input type="email" class="w-full border rounded p-2" bind:value={email} />
     </div>
     <div>
       <label class="block text-sm mb-1">Password</label>

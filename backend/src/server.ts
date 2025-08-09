@@ -5,6 +5,7 @@ import authRoutes from "./routes/auth";
 import tripRoutes from "./routes/trips";
 import expenseRoutes from "./routes/expenses";
 import aiRoutes from "./routes/ai";
+import userRoutes from "./routes/users";
 import { requireAuth } from "./middleware/auth";
 
 const app = express();
@@ -18,6 +19,7 @@ app.use(requireAuth);
 app.use(tripRoutes);
 app.use(expenseRoutes);
 app.use(aiRoutes);
+app.use(userRoutes);
 
 app.listen(config.port, () => {
   console.log(`API listening on http://localhost:${config.port}`);

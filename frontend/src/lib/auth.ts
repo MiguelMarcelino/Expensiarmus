@@ -1,7 +1,7 @@
 import { writable } from 'svelte/store';
 import { api } from './api';
 
-export type User = { id: string; username: string };
+export type User = { id: string; username: string; email?: string | null };
 
 export const currentUser = writable<User | null>(null);
 export const authReady = writable(false);
@@ -22,10 +22,10 @@ export async function login(username: string, password: string) {
   currentUser.set(user);
 }
 
-export async function register(username: string, password: string) {
+export async function register(username: string, password: string, email?: string) {
   const { token, user } = await api('/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ username, password, email }),
   });
   localStorage.setItem('token', token);
   localStorage.setItem('user', JSON.stringify(user));

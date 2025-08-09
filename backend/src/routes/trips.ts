@@ -34,7 +34,7 @@ router.get("/trips/:tripId/members", async (req: AuthenticatedRequest, res) => {
 
   const members = await prisma.tripMember.findMany({
     where: { tripId },
-    include: { user: { select: { id: true, username: true } } },
+    include: { user: { select: { id: true, username: true, email: true } } },
     orderBy: { user: { username: "asc" } },
   });
   res.json({ members });
@@ -77,7 +77,7 @@ router.post("/trips/:tripId/members", async (req: AuthenticatedRequest, res) => 
 
   const members = await prisma.tripMember.findMany({
     where: { tripId },
-    include: { user: { select: { id: true, username: true } } },
+    include: { user: { select: { id: true, username: true, email: true } } },
   });
 
   res.json({ members });
