@@ -91,7 +91,7 @@
     !tripId ||
     description.trim().length === 0 ||
     Number(amount) <= 0 ||
-    (splitMode === 'custom_percentages' && sumPercents(splitPctByUserId) < 99.999) ||
+    // split percentages validation removed since split UI is hidden
     (paymentMode === 'custom_percentages' && sumPercents(paidPctByUserId) < 99.999)
   );
   $: payerOptions = (() => {
@@ -149,7 +149,7 @@
     const total = Number(amount) || 0;
     const splitSum = sumStrings(splitByUserId);
     const paidSum = sumStrings(paidByUserId);
-    if (splitMode === 'custom_percentages' && sumPercents(splitPctByUserId) < 99.999) return `Split percentages must sum to 100%`;
+    // split percentages validation removed since split UI is hidden
     if (paymentMode === 'custom_percentages' && sumPercents(paidPctByUserId) < 99.999) return `Payment percentages must sum to 100%`;
     if (Math.round(splitSum * 100) !== Math.round(total * 100)) return `Splits must sum to ${total.toFixed(2)}`;
     if (Math.round(paidSum * 100) !== Math.round(total * 100)) return `Payments must sum to ${total.toFixed(2)}`;
@@ -581,35 +581,7 @@
         <div class="text-xs opacity-70 mt-1">Total payments: ${sumStrings(paidByUserId).toFixed(2)}</div>
       </div>
 
-      <div class="mt-1">
-        <div class="flex items-center justify-between mb-1">
-          <div class="text-sm font-semibold">Who owes how much</div>
-          <select class="text-xs p-1 rounded-md bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10" bind:value={splitMode} on:change={onSplitModeChange}>
-            <option value="equal">Split equally</option>
-            <option value="custom_percentages">Custom percentages</option>
-            <option value="custom_amounts">Custom amounts</option>
-          </select>
-        </div>
-        <div class="space-y-1.5">
-        {#each splitParticipants as u}
-          <div class="flex items-center gap-2 py-0.5 min-w-0">
-            <span class="w-28 text-sm opacity-80">{u.username}</span>
-            {#if splitMode === 'custom_percentages'}
-              <div class="flex items-center gap-2 flex-1 min-w-0">
-                <input type="number" min="0" max="100" step="0.01" class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={splitPctByUserId[u.id]} on:input={(e) => onSplitPercentInput(u.id, (e.target as HTMLInputElement).value)} />
-                <span class="text-sm opacity-70">%</span>
-                <div class="w-full min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{splitByUserId[u.id]}</div>
-              </div>
-            {:else if splitMode === 'equal'}
-              <div class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{splitByUserId[u.id]}</div>
-            {:else}
-              <input type="number" min="0" step="0.01" class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={splitByUserId[u.id]} on:input={(e) => splitByUserId[u.id] = (e.target as HTMLInputElement).value} />
-            {/if}
-          </div>
-        {/each}
-        </div>
-        <div class="text-xs opacity-70 mt-1">Total splits: ${sumStrings(splitByUserId).toFixed(2)}</div>
-      </div>
+      
 
       <button class="w-full py-2.5 rounded-lg bg-indigo-600 text-white disabled:opacity-60 disabled:cursor-not-allowed" on:click={addExpense} disabled={addDisabled}>Add</button>
     </div>
