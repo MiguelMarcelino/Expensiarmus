@@ -98,7 +98,7 @@
   <div class="relative px-6 py-8 md:px-8 md:py-10">
     <div class="max-w-5xl mx-auto grid md:grid-cols-3 gap-4 items-stretch">
       <div class="md:col-span-2">
-        <div class="relative rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm">
+        <div class="relative h-full rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm">
           <div class="flex items-start justify-between gap-4">
             <div>
               <div class="text-sm opacity-70">Welcome back</div>
@@ -126,8 +126,8 @@
         </div>
       </div>
 
-      <div class="space-y-4">
-        <div class="rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm overflow-hidden">
+      <div class="space-y-4 h-full">
+        <div class="h-full rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm overflow-hidden flex flex-col justify-between">
           <div class="text-sm opacity-70 mb-2">Quick action</div>
           <div class="flex items-center gap-2 min-w-0">
             <input class="flex-1 min-w-0 border rounded-lg p-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 placeholder-gray-500 border-gray-300 dark:border-gray-700" placeholder="New trip name" bind:value={name} />
