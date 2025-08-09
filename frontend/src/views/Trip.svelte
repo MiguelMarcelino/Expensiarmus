@@ -124,6 +124,26 @@
     }
   }
 
+  function inferPayerId(e: Expense): string | null {
+    // If explicit payments exist, payer is whoever paid the most
+    if (e.payments && e.payments.length > 0) {
+      let top = e.payments[0];
+      for (const p of e.payments) {
+        if (p.amountCents > top.amountCents) top = p;
+      }
+      return top.userId;
+    }
+    // Otherwise, infer from default split rule: everyone except the payer owes
+    const splitIds = new Set(e.splits.map((s) => s.userId));
+    const candidates: string[] = [];
+    for (const u of balanceUsers) {
+      if (!splitIds.has(u.id)) candidates.push(u.id);
+    }
+    // De-duplicate just in case
+    const unique = Array.from(new Set(candidates));
+    return unique.length === 1 ? unique[0] : null;
+  }
+
   function myDeltaCents(e: Expense): number {
     const mySplit = e.splits.find((s) => s.userId === me?.id)?.amountCents || 0;
     let myPaid = 0;
@@ -132,7 +152,12 @@
         .filter((p) => p.userId === (me?.id || ''))
         .reduce((sum, p) => sum + p.amountCents, 0);
     } else {
-      myPaid = e.createdBy.id === (me?.id || '') ? e.amountCents : 0;
+      const inferred = inferPayerId(e);
+      if (inferred) {
+        myPaid = inferred === (me?.id || '') ? e.amountCents : 0;
+      } else {
+        myPaid = e.createdBy.id === (me?.id || '') ? e.amountCents : 0;
+      }
     }
     return myPaid - mySplit; // >0 you're owed, <0 you owe
   }
@@ -509,7 +534,10 @@
       for (const s of e.splits) splitMap[s.userId] = s.amountCents;
       const payMap: Record<string, number> = {};
       for (const p of e.payments || []) payMap[p.userId] = p.amountCents;
-      if (Object.keys(payMap).length === 0) payMap[e.createdBy.id] = total;
+      if (Object.keys(payMap).length === 0) {
+        const inferred = inferPayerId(e) || e.createdBy.id;
+        payMap[inferred] = total;
+      }
       for (const id of userIds) {
         const owe = splitMap[id] || 0;
         const paid = payMap[id] || 0;
