@@ -59,6 +59,11 @@
     if (me && !list.find((u) => u.id === me!.id)) list.unshift({ id: me.id, username: me.username });
     return list;
   })();
+  $: splitParticipants = (() => {
+    if (members.length > 0) return members.map((m) => m.user);
+    if (me) return [{ id: me.id, username: me.username }];
+    return [] as { id: string; username: string }[];
+  })();
 
   async function load() {
     error = null;
@@ -75,8 +80,8 @@
       if (expenses.length > 0 && expenses[0].category) {
         tripName = expenses[0].category;
       }
-      // Initialize equal split by default
-      const participantIds = members.map((m) => m.user.id);
+      // Initialize equal split among splitParticipants
+      const participantIds = splitParticipants.map((u) => u.id);
       if (participantIds.length > 0 && Number(amount) > 0) {
         const per = Number(amount) / participantIds.length;
         splitByUserId = Object.fromEntries(participantIds.map((id) => [id, per.toFixed(2)]));
@@ -93,7 +98,7 @@
 
   function onAmountChange() {
     const total = Number(amount) || 0;
-    const ids = members.map((m) => m.user.id);
+    const ids = splitParticipants.map((u) => u.id);
     if (ids.length > 0) {
       const per = total / ids.length || 0;
       splitByUserId = Object.fromEntries(ids.map((id) => [id, per.toFixed(2)]));
@@ -319,10 +324,10 @@
 
       <div class="mt-2">
         <div class="text-sm font-semibold mb-1">Who owes how much</div>
-        {#each members as m}
+        {#each splitParticipants as u}
           <div class="flex items-center gap-2 py-1">
-            <span class="w-28 text-sm opacity-80">{m.user.username}</span>
-            <input type="number" min="0" step="0.01" class="flex-1 border border-gray-300 dark:border-gray-600 rounded p-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 placeholder-gray-500" bind:value={splitByUserId[m.user.id]} on:input={(e) => splitByUserId[m.user.id] = (e.target as HTMLInputElement).value} />
+            <span class="w-28 text-sm opacity-80">{u.username}</span>
+            <input type="number" min="0" step="0.01" class="flex-1 border border-gray-300 dark:border-gray-600 rounded p-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 placeholder-gray-500" bind:value={splitByUserId[u.id]} on:input={(e) => splitByUserId[u.id] = (e.target as HTMLInputElement).value} />
           </div>
         {/each}
         <div class="text-xs opacity-70 mt-1">Total splits: ${sumStrings(splitByUserId).toFixed(2)}</div>
