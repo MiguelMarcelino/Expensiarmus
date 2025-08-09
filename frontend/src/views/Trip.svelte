@@ -42,6 +42,14 @@
   let splitByUserId: Record<string, string> = {}; // userId -> amount string
   let paidByUserId: Record<string, string> = {};  // userId -> amount string
 
+  // Modes and percentage storage
+  type SplitMode = 'equal' | 'custom_amounts' | 'custom_percentages';
+  type PaymentMode = 'payer' | 'equal' | 'custom_amounts' | 'custom_percentages';
+  let splitMode: SplitMode = 'equal';
+  let paymentMode: PaymentMode = 'payer';
+  let splitPctByUserId: Record<string, string> = {}; // userId -> percentage string (0-100)
+  let paidPctByUserId: Record<string, string> = {};  // userId -> percentage string (0-100)
+
   // AI form
   let aiInput = '';
 
@@ -50,6 +58,9 @@
 
   function centsToString(c: number) { return (c / 100).toFixed(2); }
   function sumStrings(obj: Record<string, string>): number {
+    return Object.values(obj).reduce((s, v) => s + (Number(v) || 0), 0);
+  }
+  function sumPercents(obj: Record<string, string>): number {
     return Object.values(obj).reduce((s, v) => s + (Number(v) || 0), 0);
   }
 
@@ -76,7 +87,13 @@
   }, 0);
   $: netCents = totalOwedCents - totalOweCents;
 
-  $: addDisabled = !tripId || description.trim().length === 0 || Number(amount) <= 0;
+  $: addDisabled = (
+    !tripId ||
+    description.trim().length === 0 ||
+    Number(amount) <= 0 ||
+    (splitMode === 'custom_percentages' && sumPercents(splitPctByUserId) < 99.999) ||
+    (paymentMode === 'custom_percentages' && sumPercents(paidPctByUserId) < 99.999)
+  );
   $: payerOptions = (() => {
     const list = [...members.map((m) => m.user)];
     if (me && !list.find((u) => u.id === me!.id)) list.unshift({ id: me.id, username: me.username });
@@ -106,43 +123,34 @@
       if (!payerUserId) {
         payerUserId = me?.id || (members[0]?.user.id ?? '');
       }
-      // Initialize equal split among splitParticipants
-      const participantIds = splitParticipants.map((u) => u.id);
-      if (participantIds.length > 0 && Number(amount) > 0) {
-        const per = Number(amount) / participantIds.length;
-        splitByUserId = Object.fromEntries(participantIds.map((id) => [id, per.toFixed(2)]));
-      } else {
-        splitByUserId = Object.fromEntries(participantIds.map((id) => [id, '0']));
-      }
-      // Default payer covers full amount
-      const idsForPayments = payerOptions.map((u) => u.id);
-      paidByUserId = Object.fromEntries(idsForPayments.map((id) => [id, id === payerUserId ? (Number(amount) || 0).toFixed(2) : '0']));
+      // Initialize equal split among splitParticipants and default payment by payer
+      initializeAllocations();
     } catch (e: any) {
       error = e.message;
     }
   }
 
   function onAmountChange() {
-    const total = Number(amount) || 0;
-    const ids = splitParticipants.map((u) => u.id);
-    if (ids.length > 0) {
-      const per = total / ids.length || 0;
-      splitByUserId = Object.fromEntries(ids.map((id) => [id, per.toFixed(2)]));
-    }
-    const idsForPayments = payerOptions.map((u) => u.id);
-    paidByUserId = Object.fromEntries(idsForPayments.map((id) => [id, id === payerUserId ? total.toFixed(2) : '0']));
+    recalcSplits();
+    recalcPayments();
   }
 
   function onPayerChange() {
-    const total = Number(amount) || 0;
-    const idsForPayments = payerOptions.map((u) => u.id);
-    paidByUserId = Object.fromEntries(idsForPayments.map((id) => [id, id === payerUserId ? total.toFixed(2) : '0']));
+    if (paymentMode === 'payer') {
+      const total = Number(amount) || 0;
+      const idsForPayments = payerOptions.map((u) => u.id);
+      paidByUserId = Object.fromEntries(
+        idsForPayments.map((id) => [id, id === payerUserId ? total.toFixed(2) : '0'])
+      );
+    }
   }
 
   function validTotals(): string | null {
     const total = Number(amount) || 0;
     const splitSum = sumStrings(splitByUserId);
     const paidSum = sumStrings(paidByUserId);
+    if (splitMode === 'custom_percentages' && sumPercents(splitPctByUserId) < 99.999) return `Split percentages must sum to 100%`;
+    if (paymentMode === 'custom_percentages' && sumPercents(paidPctByUserId) < 99.999) return `Payment percentages must sum to 100%`;
     if (Math.round(splitSum * 100) !== Math.round(total * 100)) return `Splits must sum to ${total.toFixed(2)}`;
     if (Math.round(paidSum * 100) !== Math.round(total * 100)) return `Payments must sum to ${total.toFixed(2)}`;
     return null;
@@ -173,6 +181,133 @@
     } catch (e: any) {
       error = e.message;
     }
+  }
+
+  // ----- Allocation helpers (amounts/percentages) -----
+  function initializeAllocations() {
+    const total = Number(amount) || 0;
+    const participantIds = splitParticipants.map((u) => u.id);
+    // Split equal by default
+    if (participantIds.length > 0 && total > 0) {
+      const equalPct = (100 / participantIds.length).toFixed(2);
+      splitPctByUserId = Object.fromEntries(participantIds.map((id) => [id, equalPct]));
+      splitMode = 'equal';
+      splitByUserId = allocateByPercent(total, splitPctByUserId, participantIds);
+    } else {
+      splitPctByUserId = Object.fromEntries(participantIds.map((id) => [id, '0']));
+      splitByUserId = Object.fromEntries(participantIds.map((id) => [id, '0']));
+    }
+    // Payments: default payer covers all
+    const idsForPayments = payerOptions.map((u) => u.id);
+    paidPctByUserId = Object.fromEntries(idsForPayments.map((id) => [id, id === payerUserId ? '100' : '0']));
+    paymentMode = 'payer';
+    paidByUserId = Object.fromEntries(idsForPayments.map((id) => [id, id === payerUserId ? total.toFixed(2) : '0']));
+  }
+
+  function allocateByPercent(totalAmount: number, pctMap: Record<string, string>, orderedUserIds: string[]): Record<string, string> {
+    const totalCents = Math.round((totalAmount || 0) * 100);
+    const entries = orderedUserIds.map((id) => {
+      const pct = Math.max(0, Number(pctMap[id] || 0));
+      const raw = (totalCents * pct) / 100;
+      const floorCents = Math.floor(raw);
+      const frac = raw - floorCents;
+      return { id, floorCents, frac };
+    });
+    let allocated = entries.reduce((s, e) => s + e.floorCents, 0);
+    let remainder = totalCents - allocated;
+    // Distribute remaining cents to largest fractional parts
+    entries.sort((a, b) => b.frac - a.frac);
+    for (let i = 0; i < entries.length && remainder > 0; i++) {
+      entries[i].floorCents += 1;
+      remainder -= 1;
+    }
+    // Back to dollars strings
+    const result: Record<string, string> = {};
+    for (const e of entries) {
+      result[e.id] = (e.floorCents / 100).toFixed(2);
+    }
+    return result;
+  }
+
+  function recalcSplits() {
+    const total = Number(amount) || 0;
+    const ids = splitParticipants.map((u) => u.id);
+    if (splitMode === 'equal') {
+      const equalPct = ids.length > 0 ? (100 / ids.length) : 0;
+      splitPctByUserId = Object.fromEntries(ids.map((id) => [id, equalPct.toFixed(2)]));
+      splitByUserId = allocateByPercent(total, splitPctByUserId, ids);
+    } else if (splitMode === 'custom_percentages') {
+      splitByUserId = allocateByPercent(total, splitPctByUserId, ids);
+    } // custom_amounts: keep current splitByUserId as-is
+  }
+
+  function recalcPayments() {
+    const total = Number(amount) || 0;
+    const ids = payerOptions.map((u) => u.id);
+    if (paymentMode === 'payer') {
+      paidByUserId = Object.fromEntries(ids.map((id) => [id, id === payerUserId ? total.toFixed(2) : '0']));
+      paidPctByUserId = Object.fromEntries(ids.map((id) => [id, id === payerUserId ? '100' : '0']));
+    } else if (paymentMode === 'equal') {
+      const equalPct = ids.length > 0 ? (100 / ids.length) : 0;
+      paidPctByUserId = Object.fromEntries(ids.map((id) => [id, equalPct.toFixed(2)]));
+      paidByUserId = allocateByPercent(total, paidPctByUserId, ids);
+    } else if (paymentMode === 'custom_percentages') {
+      paidByUserId = allocateByPercent(total, paidPctByUserId, ids);
+    } // custom_amounts: keep current paidByUserId as-is
+  }
+
+  function onSplitModeChange(e: Event) {
+    splitMode = (e.target as HTMLSelectElement).value as SplitMode;
+    recalcSplits();
+  }
+
+  function onPaymentModeChange(e: Event) {
+    paymentMode = (e.target as HTMLSelectElement).value as PaymentMode;
+    recalcPayments();
+  }
+
+  // Clamp and auto-balance percent entries so they never exceed 100 total. We only block submit on <100 per request.
+  function clampPercent(value: string): string {
+    const n = Number(value);
+    if (!isFinite(n) || n < 0) return '0';
+    return Math.min(100, n).toFixed(2);
+  }
+
+  function onSplitPercentInput(userId: string, value: string) {
+    splitPctByUserId[userId] = clampPercent(value);
+    // Optional: cap group sum to 100 by scaling down others if it exceeds
+    const total = sumPercents(splitPctByUserId);
+    if (total > 100.0001) {
+      const ids = splitParticipants.map((u) => u.id);
+      const over = total - 100;
+      for (const id of ids) {
+        if (id === userId) continue;
+        const curr = Math.max(0, Number(splitPctByUserId[id] || 0));
+        if (curr <= 0) continue;
+        const reduceBy = Math.min(curr, over);
+        splitPctByUserId[id] = (curr - reduceBy).toFixed(2);
+        break;
+      }
+    }
+    recalcSplits();
+  }
+
+  function onPaidPercentInput(userId: string, value: string) {
+    paidPctByUserId[userId] = clampPercent(value);
+    const total = sumPercents(paidPctByUserId);
+    if (total > 100.0001) {
+      const ids = payerOptions.map((u) => u.id);
+      const over = total - 100;
+      for (const id of ids) {
+        if (id === userId) continue;
+        const curr = Math.max(0, Number(paidPctByUserId[id] || 0));
+        if (curr <= 0) continue;
+        const reduceBy = Math.min(curr, over);
+        paidPctByUserId[id] = (curr - reduceBy).toFixed(2);
+        break;
+      }
+    }
+    recalcPayments();
   }
 
   async function aiParse() {
@@ -365,8 +500,8 @@
   </div>
 </section>
 
-<div class="grid md:grid-cols-3 gap-6 mt-2">
-  <div class="md:col-span-2 space-y-4">
+<div class="grid md:grid-cols-4 lg:grid-cols-5 gap-6 mt-2">
+  <div class="md:col-span-2 lg:col-span-3 space-y-4">
     <div class="rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm">
       <h2 class="font-semibold mb-3">Expenses</h2>
       {#if expenses.length === 0}
@@ -398,11 +533,13 @@
       {/if}
     </div>
   </div>
-  <div class="space-y-4">
-    <div class="rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm space-y-3">
+  <div class="md:col-span-2 lg:col-span-2 space-y-4">
+    <div class="rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm space-y-4">
       <h3 class="font-semibold">Add expense (manual)</h3>
-      <input class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" placeholder="Description" bind:value={description} />
-      <input type="number" min="0" step="0.01" class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" placeholder="Amount" bind:value={amount} on:change={onAmountChange} />
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <input class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" placeholder="Description" bind:value={description} />
+        <input type="number" min="0" step="0.01" class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" placeholder="Amount" bind:value={amount} on:change={onAmountChange} />
+      </div>
 
       <div>
         <label class="text-xs opacity-70 block mb-1" for="payer-select">Payer</label>
@@ -413,29 +550,68 @@
         </select>
       </div>
 
-      <div class="mt-2">
-        <div class="text-sm font-semibold mb-1">Who pays how much</div>
+      <div class="mt-1">
+        <div class="flex items-center justify-between mb-1">
+          <div class="text-sm font-semibold">Who pays how much</div>
+          <select class="text-xs p-1 rounded-md bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10" bind:value={paymentMode} on:change={onPaymentModeChange}>
+            <option value="payer">Payer covers all</option>
+            <option value="equal">Split equally</option>
+            <option value="custom_percentages">Custom percentages</option>
+            <option value="custom_amounts">Custom amounts</option>
+          </select>
+        </div>
+        <div class="space-y-1.5">
         {#each payerOptions as u}
-          <div class="flex items-center gap-2 py-1">
+          <div class="flex items-center gap-2 py-0.5 min-w-0">
             <span class="w-28 text-sm opacity-80">{u.username}</span>
-            <input type="number" min="0" step="0.01" class="flex-1 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidByUserId[u.id]} on:input={(e) => paidByUserId[u.id] = (e.target as HTMLInputElement).value} />
+            {#if paymentMode === 'custom_percentages'}
+              <div class="flex items-center gap-2 flex-1 min-w-0">
+                <input type="number" min="0" max="100" step="0.01" class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidPctByUserId[u.id]} on:input={(e) => onPaidPercentInput(u.id, (e.target as HTMLInputElement).value)} />
+                <span class="text-sm opacity-70">%</span>
+                <div class="w-full min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{paidByUserId[u.id]}</div>
+              </div>
+            {:else if paymentMode === 'equal' || paymentMode === 'payer'}
+              <div class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{paidByUserId[u.id]}</div>
+            {:else}
+              <input type="number" min="0" step="0.01" class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidByUserId[u.id]} on:input={(e) => paidByUserId[u.id] = (e.target as HTMLInputElement).value} />
+            {/if}
           </div>
         {/each}
+        </div>
         <div class="text-xs opacity-70 mt-1">Total payments: ${sumStrings(paidByUserId).toFixed(2)}</div>
       </div>
 
-      <div class="mt-2">
-        <div class="text-sm font-semibold mb-1">Who owes how much</div>
+      <div class="mt-1">
+        <div class="flex items-center justify-between mb-1">
+          <div class="text-sm font-semibold">Who owes how much</div>
+          <select class="text-xs p-1 rounded-md bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10" bind:value={splitMode} on:change={onSplitModeChange}>
+            <option value="equal">Split equally</option>
+            <option value="custom_percentages">Custom percentages</option>
+            <option value="custom_amounts">Custom amounts</option>
+          </select>
+        </div>
+        <div class="space-y-1.5">
         {#each splitParticipants as u}
-          <div class="flex items-center gap-2 py-1">
+          <div class="flex items-center gap-2 py-0.5 min-w-0">
             <span class="w-28 text-sm opacity-80">{u.username}</span>
-            <input type="number" min="0" step="0.01" class="flex-1 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={splitByUserId[u.id]} on:input={(e) => splitByUserId[u.id] = (e.target as HTMLInputElement).value} />
+            {#if splitMode === 'custom_percentages'}
+              <div class="flex items-center gap-2 flex-1 min-w-0">
+                <input type="number" min="0" max="100" step="0.01" class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={splitPctByUserId[u.id]} on:input={(e) => onSplitPercentInput(u.id, (e.target as HTMLInputElement).value)} />
+                <span class="text-sm opacity-70">%</span>
+                <div class="w-full min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{splitByUserId[u.id]}</div>
+              </div>
+            {:else if splitMode === 'equal'}
+              <div class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{splitByUserId[u.id]}</div>
+            {:else}
+              <input type="number" min="0" step="0.01" class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={splitByUserId[u.id]} on:input={(e) => splitByUserId[u.id] = (e.target as HTMLInputElement).value} />
+            {/if}
           </div>
         {/each}
+        </div>
         <div class="text-xs opacity-70 mt-1">Total splits: ${sumStrings(splitByUserId).toFixed(2)}</div>
       </div>
 
-      <button class="w-full py-2 rounded-lg bg-indigo-600 text-white disabled:opacity-60 disabled:cursor-not-allowed" on:click={addExpense} disabled={addDisabled}>Add</button>
+      <button class="w-full py-2.5 rounded-lg bg-indigo-600 text-white disabled:opacity-60 disabled:cursor-not-allowed" on:click={addExpense} disabled={addDisabled}>Add</button>
     </div>
 
     <div class="rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm space-y-3">
