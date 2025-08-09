@@ -27,6 +27,17 @@
   // flattened expense feed across all trips
   let expenses: (Expense & { tripName: string })[] = [];
 
+  // totals for the current user
+  $: totalOweCents = expenses.reduce((sum, e) => {
+    const d = myDeltaCents(e);
+    return sum + (d < 0 ? -d : 0);
+  }, 0);
+  $: totalOwedCents = expenses.reduce((sum, e) => {
+    const d = myDeltaCents(e);
+    return sum + (d > 0 ? d : 0);
+  }, 0);
+  $: netCents = totalOwedCents - totalOweCents;
+
   function centsToString(c: number) {
     return (c / 100).toFixed(2);
   }
@@ -78,7 +89,57 @@
   });
 </script>
 
-<div class="flex items-center gap-3 mb-6">
+<!-- Hero summary -->
+<section class="relative overflow-hidden rounded-3xl mb-8">
+  <div class="absolute inset-0 -z-10 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900"></div>
+  <div class="absolute -top-28 -right-28 h-72 w-72 rounded-full blur-3xl opacity-40 bg-gradient-to-br from-purple-400 to-indigo-400 dark:from-purple-600 dark:to-indigo-600"></div>
+  <div class="absolute -bottom-28 -left-28 h-72 w-72 rounded-full blur-3xl opacity-40 bg-gradient-to-br from-blue-400 to-cyan-400 dark:from-blue-700 dark:to-cyan-700"></div>
+
+  <div class="relative px-6 py-8 md:px-8 md:py-10">
+    <div class="max-w-5xl mx-auto grid md:grid-cols-3 gap-4 items-stretch">
+      <div class="md:col-span-2">
+        <div class="relative rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <div class="text-sm opacity-70">Welcome back</div>
+              <h2 class="text-2xl md:text-3xl font-extrabold tracking-tight">Your balances</h2>
+              <div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/20">
+                  You owe <strong class="tabular-nums ml-1">${centsToString(totalOweCents)}</strong>
+                </span>
+                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-500/10 text-green-700 dark:text-green-300 border border-green-500/20">
+                  You're owed <strong class="tabular-nums ml-1">${centsToString(totalOwedCents)}</strong>
+                </span>
+                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-500/10 text-gray-700 dark:text-gray-200 border border-gray-500/20">
+                  Net
+                  <strong class="tabular-nums ml-1 {netCents>=0 ? 'text-green-600' : 'text-red-600'}">${centsToString(Math.abs(netCents))}</strong>
+                  <span class="opacity-70">{netCents>=0 ? 'in your favor' : 'to settle'}</span>
+                </span>
+              </div>
+            </div>
+            <div class="text-right hidden sm:block">
+              <div class="text-xs opacity-70">Across all trips</div>
+              <div class="text-3xl font-bold tabular-nums">${centsToString(totalOwedCents)}</div>
+              <div class="text-xs opacity-70">potential incoming</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div class="rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm overflow-hidden">
+          <div class="text-sm opacity-70 mb-2">Quick action</div>
+          <div class="flex items-center gap-2 min-w-0">
+            <input class="flex-1 min-w-0 border rounded-lg p-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 placeholder-gray-500 border-gray-300 dark:border-gray-700" placeholder="New trip name" bind:value={name} />
+            <button class="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 text-white disabled:opacity-60 disabled:cursor-not-allowed" on:click={createTrip} disabled={!name}>Create</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="flex items-center gap-3 mb-4">
   <input class="border rounded p-2 flex-1" placeholder="New trip name" bind:value={name} />
   <button class="px-4 py-2 rounded bg-blue-600 text-white" on:click={createTrip} disabled={!name}>Create</button>
 </div>
