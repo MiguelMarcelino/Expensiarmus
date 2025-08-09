@@ -9,7 +9,7 @@
   let tripId: string = '';
   $: tripId = params?.id || '';
 
-  type Member = { user: { id: string; username: string } };
+  type Member = { id: string; joinedAt?: string; user: { id: string; username: string } };
   type Expense = {
     id: string;
     description: string;
@@ -19,6 +19,7 @@
     unitPriceCents?: number | null;
     amountCents: number;
     incurredAt: string;
+    createdAt?: string;
     createdBy: { id: string; username: string };
     splits: { userId: string; amountCents: number }[];
     payments?: { userId: string; amountCents: number }[];
@@ -179,6 +180,42 @@
       })()
     : null;
 
+  // ----- Activity feed -----
+  type ActivityEvent = {
+    id: string;
+    kind: 'member_joined' | 'expense_created' | 'expense_edited';
+    at: string; // ISO date
+    text: string;
+  };
+  let activeTab: 'expenses' | 'activity' = 'expenses';
+  let localActivity: ActivityEvent[] = [];
+  let activityEvents: ActivityEvent[] = [];
+  $: activityEvents = (() => {
+    const items: ActivityEvent[] = [];
+    for (const m of members) {
+      if (m.joinedAt) {
+        items.push({
+          id: `member_${m.id || m.user.id}`,
+          kind: 'member_joined',
+          at: m.joinedAt,
+          text: `${m.user.username} joined the trip`,
+        });
+      }
+    }
+    for (const e of expenses) {
+      const when = e.createdAt || e.incurredAt;
+      items.push({
+        id: `expense_${e.id}`,
+        kind: 'expense_created',
+        at: when,
+        text: `${e.createdBy.username} added "${e.description}" for $${centsToString(e.amountCents)}`,
+      });
+    }
+    // Include local (non-persisted) edits
+    for (const ev of localActivity) items.push(ev);
+    return items.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+  })();
+
   $: addDisabled = (
     !tripId ||
     description.trim().length === 0 ||
@@ -266,6 +303,17 @@
         body: JSON.stringify({ tripId, description: description.trim(), amount: amountNum, category: category || undefined, expenseType: expenseType || undefined, incurredAt: incurredAtIso, payments })
       });
       expenses = [res.expense as Expense, ...expenses];
+      // Track local create activity
+      const created = res.expense as Expense;
+      localActivity = [
+        {
+          id: `create_${created.id}`,
+          kind: 'expense_created',
+          at: created.createdAt || created.incurredAt,
+          text: `${me?.username || 'You'} added "${created.description}" for $${centsToString(created.amountCents)}`,
+        },
+        ...localActivity,
+      ];
       description = ''; amount = ''; category = ''; expenseType = '';
       incurredAtInput = nowLocalDatetime();
       success = 'Expense added successfully.';
@@ -423,6 +471,19 @@
       const res = await api(`/trips/${tripId}/members`, { method: 'POST', body: JSON.stringify({ username: memberUsername }) });
       if (res?.members) {
         members = res.members as Member[];
+        // Try to find the newly added member to record join activity (backend returns joinedAt)
+        const added = (res.members as any[]).find((m) => m.user?.username === memberUsername);
+        if (added?.joinedAt) {
+          localActivity = [
+            {
+              id: `member_${added.id || added.user?.id}`,
+              kind: 'member_joined',
+              at: added.joinedAt,
+              text: `${added.user?.username || memberUsername} joined the trip`,
+            },
+            ...localActivity,
+          ];
+        }
       }
       memberUsername = '';
       userSuggestions = [];
@@ -624,6 +685,16 @@
       });
       const updated = res.expense as Expense;
       expenses = expenses.map((x) => (x.id === updated.id ? updated : x));
+      // Track local edit activity
+      localActivity = [
+        {
+          id: `edit_${updated.id}_${Date.now()}`,
+          kind: 'expense_edited',
+          at: new Date().toISOString(),
+          text: `Edited "${updated.description}"`,
+        },
+        ...localActivity,
+      ];
       success = 'Expense updated.';
       setTimeout(() => { success = null; }, 2500);
       closeEditor();
@@ -709,7 +780,7 @@
 <section class="mb-6">
   <div class="rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm">
     <h2 class="font-semibold mb-3">Balances</h2>
-    <div class="text-sm grid md:grid-cols-3 gap-6">
+    <div class="text-sm grid md:grid-cols-2 gap-6">
       <div>
         {#if balanceUsers.length === 0}
           <div class="text-sm opacity-60">No participants yet.</div>
@@ -744,35 +815,7 @@
           </div>
         {/if}
       </div>
-      <div>
-        <div class="opacity-70 mb-1">Your activity</div>
-        <div class="space-y-1.5">
-          <div class="flex items-center justify-between">
-            <span>Paid</span>
-            <span class="tabular-nums">${centsToString(myPaidCents)}</span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span>Your share</span>
-            <span class="tabular-nums">${centsToString(mySplitCents)}</span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span>Net</span>
-            <span class="tabular-nums {myPaidCents - mySplitCents >= 0 ? 'text-green-600' : 'text-red-600'}">${centsToString(Math.abs(myPaidCents - mySplitCents))}</span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span>Created</span>
-            <span class="tabular-nums">{myCreatedCount}</span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span>Largest expense</span>
-            <span class="tabular-nums">{myLargestExpense ? `$${centsToString(myLargestExpense.amount)}` : '—'}</span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span>Top category</span>
-            <span>{myTopCategory || '—'}</span>
-          </div>
-        </div>
-      </div>
+      
     </div>
   </div>
 </section>
@@ -780,36 +823,56 @@
 <div class="grid md:grid-cols-4 lg:grid-cols-5 gap-6 mt-2">
   <div class="md:col-span-2 lg:col-span-3 space-y-4">
     <div class="rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm">
-      <h2 class="font-semibold mb-3">Expenses</h2>
-      {#if expenses.length === 0}
-        <div class="text-sm opacity-70">No expenses yet.</div>
-      {:else}
-        <div class="divide-y divide-gray-200/70 dark:divide-gray-700/50">
-          {#each expenses as e}
-            <div class="py-3 flex items-start justify-between">
-              <div>
-                <div class="font-medium">{e.description}</div>
-                <div class="text-xs opacity-70">{e.expenseType || e.category}</div>
-                <div class="text-xs opacity-60">by {e.createdBy.username} · {new Date(e.incurredAt).toLocaleString()}</div>
-              </div>
-              <div class="text-right">
-                <div class="font-semibold">${centsToString(e.amountCents)}</div>
-                {#if me}
-                  {#if myDeltaCents(e) < 0}
-                    <div class="mt-1 inline-block px-2 py-0.5 rounded-full text-xs bg-red-500/15 text-red-700 dark:text-red-300 border border-red-500/20">You owe ${centsToString(Math.abs(myDeltaCents(e)))}</div>
-                  {:else if myDeltaCents(e) > 0}
-                    <div class="mt-1 inline-block px-2 py-0.5 rounded-full text-xs bg-green-500/15 text-green-700 dark:text-green-300 border border-green-500/20">You're owed ${centsToString(myDeltaCents(e))}</div>
-                  {:else}
-                    <div class="mt-1 inline-block px-2 py-0.5 rounded-full text-xs bg-gray-500/15 text-gray-700 dark:text-gray-300 border border-gray-500/20">Settled</div>
+      <div class="flex items-center gap-2 border-b border-black/5 dark:border-white/10 mb-3">
+        <button class="px-3 py-2 text-sm rounded-t-lg {activeTab==='expenses' ? 'bg-indigo-600 text-white' : ''}" on:click={() => activeTab='expenses'}>Expenses</button>
+        <button class="px-3 py-2 text-sm rounded-t-lg {activeTab==='activity' ? 'bg-indigo-600 text-white' : ''}" on:click={() => activeTab='activity'}>Activity</button>
+      </div>
+      {#if activeTab === 'expenses'}
+        {#if expenses.length === 0}
+          <div class="text-sm opacity-70">No expenses yet.</div>
+        {:else}
+          <div class="divide-y divide-gray-200/70 dark:divide-gray-700/50">
+            {#each expenses as e}
+              <div class="py-3 flex items-start justify-between">
+                <div>
+                  <div class="font-medium">{e.description}</div>
+                  <div class="text-xs opacity-70">{e.expenseType || e.category}</div>
+                  <div class="text-xs opacity-60">by {e.createdBy.username} · {new Date(e.incurredAt).toLocaleString()}</div>
+                </div>
+                <div class="text-right">
+                  <div class="font-semibold">${centsToString(e.amountCents)}</div>
+                  {#if me}
+                    {#if myDeltaCents(e) < 0}
+                      <div class="mt-1 inline-block px-2 py-0.5 rounded-full text-xs bg-red-500/15 text-red-700 dark:text-red-300 border border-red-500/20">You owe ${centsToString(Math.abs(myDeltaCents(e)))}</div>
+                    {:else if myDeltaCents(e) > 0}
+                      <div class="mt-1 inline-block px-2 py-0.5 rounded-full text-xs bg-green-500/15 text-green-700 dark:text-green-300 border border-green-500/20">You're owed ${centsToString(myDeltaCents(e))}</div>
+                    {:else}
+                      <div class="mt-1 inline-block px-2 py-0.5 rounded-full text-xs bg-gray-500/15 text-gray-700 dark:text-gray-300 border border-gray-500/20">Settled</div>
+                    {/if}
                   {/if}
-                {/if}
-                <div class="mt-2">
-                  <button class="px-2 py-1 rounded-md text-xs border border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700/40" on:click={() => openEditor(e)}>Edit</button>
+                  <div class="mt-2">
+                    <button class="px-2 py-1 rounded-md text-xs border border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700/40" on:click={() => openEditor(e)}>Edit</button>
+                  </div>
                 </div>
               </div>
-            </div>
-          {/each}
-        </div>
+            {/each}
+          </div>
+        {/if}
+      {:else}
+        {#if activityEvents.length === 0}
+          <div class="text-sm opacity-70">No activity yet.</div>
+        {:else}
+          <ul class="space-y-2">
+            {#each activityEvents as ev}
+              <li class="flex items-start justify-between py-1.5">
+                <div class="text-sm">
+                  <span>{ev.text}</span>
+                </div>
+                <div class="text-xs opacity-70">{new Date(ev.at).toLocaleString()}</div>
+              </li>
+            {/each}
+          </ul>
+        {/if}
       {/if}
     </div>
   </div>
