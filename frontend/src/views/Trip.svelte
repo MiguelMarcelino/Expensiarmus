@@ -32,6 +32,8 @@
   let tripName = '';
   let error: string | null = null;
   let success: string | null = null;
+  // Users to show in balances (members + me + expense creators)
+  let balanceUsers: { id: string; username: string }[] = [];
 
   // manual form
   let description = '';
@@ -86,6 +88,55 @@
     return sum + (d > 0 ? d : 0);
   }, 0);
   $: netCents = totalOwedCents - totalOweCents;
+
+  // Enrich balances user list so section isn't empty when trip has no members yet
+  $: balanceUsers = (() => {
+    const byId = new Map<string, { id: string; username: string }>();
+    for (const m of members) byId.set(m.user.id, m.user);
+    if (me) byId.set(me.id, { id: me.id, username: me.username });
+    for (const e of expenses) byId.set(e.createdBy.id, e.createdBy);
+    return Array.from(byId.values());
+  })();
+
+  // Current user specific stats
+  $: myPaidCents = (me && expenses.length)
+    ? expenses.reduce((sum, e) => {
+        if (e.payments && e.payments.length > 0) {
+          const mine = e.payments.filter((p) => p.userId === me!.id).reduce((s, p) => s + p.amountCents, 0);
+          return sum + mine;
+        }
+        return sum + (e.createdBy.id === me!.id ? e.amountCents : 0);
+      }, 0)
+    : 0;
+  $: mySplitCents = (me && expenses.length)
+    ? expenses.reduce((sum, e) => sum + (e.splits.find((s) => s.userId === me!.id)?.amountCents || 0), 0)
+    : 0;
+  $: myCreatedCount = (me && expenses.length)
+    ? expenses.filter((e) => e.createdBy.id === me!.id).length
+    : 0;
+  $: myLargestExpense = (me && expenses.length)
+    ? expenses
+        .filter((e) => e.createdBy.id === me!.id)
+        .reduce<{ amount: number; description: string } | null>((acc, e) => {
+          if (!acc || e.amountCents > acc.amount) return { amount: e.amountCents, description: e.description };
+          return acc;
+        }, null)
+    : null;
+  $: myTopCategory = (me && expenses.length)
+    ? (() => {
+        const totals = new Map<string, number>();
+        for (const e of expenses) {
+          if (e.createdBy.id !== me!.id) continue;
+          const key = e.expenseType || e.category || 'Uncategorized';
+          totals.set(key, (totals.get(key) || 0) + e.amountCents);
+        }
+        let top: { key: string; amount: number } | null = null;
+        for (const [key, amount] of totals.entries()) {
+          if (!top || amount > top.amount) top = { key, amount };
+        }
+        return top?.key || null;
+      })()
+    : null;
 
   $: addDisabled = (
     !tripId ||
@@ -339,7 +390,7 @@
 
   // Balance summary (who owes whom)
   function computeBalances() {
-    const userIds = members.map((m) => m.user.id);
+    const userIds = balanceUsers.map((u) => u.id);
     const balances: Record<string, number> = Object.fromEntries(userIds.map((id) => [id, 0]));
     for (const e of expenses) {
       const total = e.amountCents;
@@ -387,6 +438,13 @@
   onMount(() => {
     if (tripId) load();
   });
+
+  function displayName(userId: string): string {
+    const u = balanceUsers.find((x) => x.id === userId);
+    if (u) return u.username;
+    if (me && userId === me.id) return me.username;
+    return 'Unknown';
+  }
 </script>
 
 {#if error}
@@ -465,17 +523,21 @@
 <section class="mb-6">
   <div class="rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm">
     <h2 class="font-semibold mb-3">Balances</h2>
-    <div class="text-sm grid md:grid-cols-2 gap-6">
+    <div class="text-sm grid md:grid-cols-3 gap-6">
       <div>
-        {#each members as m}
-          <div class="flex justify-between py-1.5">
-            <span>{m.user.username}</span>
-            <span class="tabular-nums {balances[m.user.id] >= 0 ? 'text-green-600' : 'text-red-600'}">
-              ${centsToString(Math.abs(balances[m.user.id] || 0))}
-              {balances[m.user.id] >= 0 ? ' owed' : ' owes'}
-            </span>
-          </div>
-        {/each}
+        {#if balanceUsers.length === 0}
+          <div class="text-sm opacity-60">No participants yet.</div>
+        {:else}
+          {#each balanceUsers as u}
+            <div class="flex justify-between py-1.5">
+              <span>{u.username}{#if me && u.id === me.id}<span class="ml-1 text-xs opacity-60">(you)</span>{/if}</span>
+              <span class="tabular-nums {balances[u.id] >= 0 ? 'text-green-600' : 'text-red-600'}">
+                ${centsToString(Math.abs(balances[u.id] || 0))}
+                {balances[u.id] >= 0 ? ' owed' : ' owes'}
+              </span>
+            </div>
+          {/each}
+        {/if}
       </div>
       <div>
         <div class="opacity-70 mb-1">Suggested transfers</div>
@@ -486,15 +548,44 @@
             {#each transfers as t}
               <div class="flex items-center justify-between py-1.5">
                 <div class="text-sm">
-                  <span>{members.find(x => x.user.id === t.from)?.user.username}</span>
+                  <span>{displayName(t.from)}</span>
                   <span class="opacity-70"> → </span>
-                  <span>{members.find(x => x.user.id === t.to)?.user.username}</span>
+                  <span>{displayName(t.to)}</span>
                 </div>
                 <span class="inline-block px-2 py-0.5 rounded-full text-xs bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/20 tabular-nums">${centsToString(t.amountCents)}</span>
               </div>
             {/each}
           </div>
         {/if}
+      </div>
+      <div>
+        <div class="opacity-70 mb-1">Your activity</div>
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span>Paid</span>
+            <span class="tabular-nums">${centsToString(myPaidCents)}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span>Your share</span>
+            <span class="tabular-nums">${centsToString(mySplitCents)}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span>Net</span>
+            <span class="tabular-nums {myPaidCents - mySplitCents >= 0 ? 'text-green-600' : 'text-red-600'}">${centsToString(Math.abs(myPaidCents - mySplitCents))}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span>Created</span>
+            <span class="tabular-nums">{myCreatedCount}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span>Largest expense</span>
+            <span class="tabular-nums">{myLargestExpense ? `$${centsToString(myLargestExpense.amount)}` : '—'}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span>Top category</span>
+            <span>{myTopCategory || '—'}</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
