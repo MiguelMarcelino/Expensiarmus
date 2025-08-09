@@ -83,11 +83,11 @@ router.post("/expenses", async (req: AuthenticatedRequest, res) => {
       })),
     });
 
-    const withSplits = await tx.expense.findUnique({
+    const withRelations = await tx.expense.findUnique({
       where: { id: expense.id },
-      include: { splits: true },
+      include: { splits: true, createdBy: { select: { id: true, username: true } } },
     });
-    return withSplits;
+    return withRelations;
   });
 
   res.json({ expense: created });
