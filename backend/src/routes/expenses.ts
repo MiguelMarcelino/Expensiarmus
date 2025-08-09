@@ -19,7 +19,7 @@ router.get("/trips/:tripId/expenses", async (req: AuthenticatedRequest, res) => 
   if (!trip) return res.status(404).json({ error: "Trip not found or access denied" });
 
   const expenses = await prisma.expense.findMany({
-    where: { tripId },
+    where: { tripId, deletedAt: null },
     include: {
       splits: true,
       payments: true,
@@ -246,7 +246,7 @@ router.delete("/expenses/:id", async (req: AuthenticatedRequest, res) => {
     await prisma.$transaction(async (tx) => {
       await tx.expenseSplit.deleteMany({ where: { expenseId } });
       await (tx as any).expensePayment.deleteMany({ where: { expenseId } });
-      await tx.expense.delete({ where: { id: expenseId } });
+      await tx.expense.update({ where: { id: expenseId }, data: { deletedAt: new Date() } });
     });
     res.status(204).send();
   } catch (e: any) {

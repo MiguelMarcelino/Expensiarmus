@@ -57,6 +57,7 @@ model Expense {
   amountCents   Int
   incurredAt    DateTime      @default(now())
   createdAt     DateTime      @default(now())
+  deletedAt     DateTime?
 
   trip         Trip          @relation(fields: [tripId], references: [id])
   createdBy    User          @relation("UserCreatedExpenses", fields: [createdById], references: [id])

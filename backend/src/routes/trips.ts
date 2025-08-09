@@ -90,12 +90,21 @@ router.get("/trips/:tripId/activity", async (req: AuthenticatedRequest, res) => 
 
   // Add expense events
   for (const expense of expenses) {
-    activities.push({
-      id: `expense_${expense.id}`,
-      kind: 'expense_created',
-      at: expense.createdAt.toISOString(),
-      text: `${expense.createdBy.username} added "${expense.description}" for $${(expense.amountCents / 100).toFixed(2)}`,
-    });
+    if (!expense.deletedAt) {
+      activities.push({
+        id: `expense_${expense.id}`,
+        kind: 'expense_created',
+        at: expense.createdAt.toISOString(),
+        text: `${expense.createdBy.username} added "${expense.description}" for $${(expense.amountCents / 100).toFixed(2)}`,
+      });
+    } else {
+      activities.push({
+        id: `expense_deleted_${expense.id}`,
+        kind: 'expense_deleted',
+        at: expense.deletedAt.toISOString(),
+        text: `${expense.createdBy.username}'s expense "${expense.description}" was deleted`,
+      });
+    }
   }
 
   // Sort by timestamp (oldest first for chronological order)

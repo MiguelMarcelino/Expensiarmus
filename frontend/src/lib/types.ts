@@ -21,7 +21,7 @@ export type Expense = {
 
 export type ActivityEvent = {
   id: string;
-  kind: 'member_joined' | 'expense_created' | 'expense_edited';
+  kind: 'member_joined' | 'expense_created' | 'expense_edited' | 'expense_deleted';
   at: string; // ISO date
   text: string;
 };
