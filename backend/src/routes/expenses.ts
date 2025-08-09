@@ -83,11 +83,13 @@ router.post("/expenses", async (req: AuthenticatedRequest, res) => {
           where: { tripId: data.tripId },
           select: { userId: true, joinedAt: true } as any,
         })) as any[];
-        const allMemberIds = members
+        const eligibleMemberIds = members
           .filter((m: any) => !m.joinedAt || new Date(m.joinedAt) <= incurredAt)
           .map((m) => m.userId);
+        // Include the trip owner as a participant even if they are not in TripMember
+        const allParticipantIds = Array.from(new Set([trip.ownerId, ...eligibleMemberIds]));
         const payerId = data.payerUserId ?? req.user!.id;
-        const oweIds = allMemberIds.filter((id) => id !== payerId);
+        const oweIds = allParticipantIds.filter((id) => id !== payerId);
         // If no other participants, fall back to payer alone (no one owes anyone effectively)
         const participants = oweIds.length > 0 ? oweIds : [payerId];
         const per = data.amount / participants.length;

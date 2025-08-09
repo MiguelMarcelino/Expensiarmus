@@ -29,16 +29,10 @@
   // flattened expense feed across all trips
   let expenses: (Expense & { tripName: string })[] = [];
 
-  // totals for the current user
-  $: totalOweCents = expenses.reduce((sum, e) => {
-    const d = myDeltaCents(e);
-    return sum + (d < 0 ? -d : 0);
-  }, 0);
-  $: totalOwedCents = expenses.reduce((sum, e) => {
-    const d = myDeltaCents(e);
-    return sum + (d > 0 ? d : 0);
-  }, 0);
-  $: netCents = totalOwedCents - totalOweCents;
+  // totals for the current user based on netting across all expenses
+  $: netCents = expenses.reduce((sum, e) => sum + myDeltaCents(e), 0);
+  $: totalOwedCents = netCents > 0 ? netCents : 0;
+  $: totalOweCents = netCents < 0 ? -netCents : 0;
 
   function centsToString(c: number) {
     return (c / 100).toFixed(2);
@@ -127,9 +121,9 @@
               </div>
             </div>
             <div class="text-right hidden sm:block">
-              <div class="text-xs opacity-70">Across all trips</div>
-              <div class="text-3xl font-bold tabular-nums">${centsToString(totalOwedCents)}</div>
-              <div class="text-xs opacity-70">potential incoming</div>
+              <div class="text-xs opacity-70">Net across all trips</div>
+              <div class="text-3xl font-bold tabular-nums {netCents>=0 ? 'text-green-600' : 'text-red-600'}">${centsToString(Math.abs(netCents))}</div>
+              <div class="text-xs opacity-70">{netCents>=0 ? 'in your favor' : 'to settle'}</div>
             </div>
           </div>
         </div>
@@ -190,23 +184,23 @@
         {#key e.id}
           <a href={`#/trip/${e.tripId}`} class="block rounded-xl border border-white/30 dark:border-gray-700/40 bg-white/60 dark:bg-gray-900/50 backdrop-blur shadow-sm hover:shadow-md transition p-4">
             <div class="flex items-start justify-between gap-3">
-              <div class="flex items-start gap-3">
+              <div class="flex items-start gap-3 min-w-0">
                 <ExpenseIcon description={e.description} category={e.category} expenseType={e.expenseType} />
-                <div class="font-semibold">{e.description}</div>
-                <div class="text-xs opacity-70">{e.expenseType || e.category}</div>
-                <div class="text-xs opacity-60">{e.tripName} · by {e.createdBy.username} · {new Date(e.incurredAt).toLocaleString()}</div>
+                <div class="min-w-0">
+                  <div class="font-semibold truncate">{e.description}</div>
+                  <div class="text-xs opacity-70 flex flex-wrap items-center gap-2">
+                    {#if e.expenseType || e.category}
+                      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-500/10 text-gray-700 dark:text-gray-200 border border-gray-500/20">{e.expenseType || e.category}</span>
+                    {/if}
+                    <span class="truncate">{e.tripName} · added by {e.createdBy.username}</span>
+                    <span class="opacity-60">·</span>
+                    <span>{new Date(e.incurredAt).toLocaleString()}</span>
+                  </div>
+                </div>
               </div>
               <div class="text-right">
                 <div class="font-semibold">${centsToString(e.amountCents)}</div>
-                {#if me}
-                  {#if myDeltaCents(e) < 0}
-                    <div class="mt-1 inline-block px-2 py-0.5 rounded-full text-xs bg-red-500/15 text-red-700 dark:text-red-300">You owe ${centsToString(Math.abs(myDeltaCents(e)))}</div>
-                  {:else if myDeltaCents(e) > 0}
-                    <div class="mt-1 inline-block px-2 py-0.5 rounded-full text-xs bg-green-500/15 text-green-700 dark:text-green-300">You're owed ${centsToString(myDeltaCents(e))}</div>
-                  {:else}
-                    <div class="mt-1 inline-block px-2 py-0.5 rounded-full text-xs bg-gray-500/15 text-gray-700 dark:text-gray-300">Settled</div>
-                  {/if}
-                {/if}
+                <!-- Per-expense badges removed to reflect global netting across expenses -->
               </div>
             </div>
           </a>

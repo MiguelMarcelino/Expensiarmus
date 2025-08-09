@@ -167,15 +167,10 @@
     return myPaid - mySplit; // >0 you're owed, <0 you owe
   }
 
-  $: totalOweCents = expenses.reduce((sum, e) => {
-    const d = myDeltaCents(e);
-    return sum + (d < 0 ? -d : 0);
-  }, 0);
-  $: totalOwedCents = expenses.reduce((sum, e) => {
-    const d = myDeltaCents(e);
-    return sum + (d > 0 ? d : 0);
-  }, 0);
-  $: netCents = totalOwedCents - totalOweCents;
+  // Netting across expenses: compute single net, then derive owe/owed displays
+  $: netCents = expenses.reduce((sum, e) => sum + myDeltaCents(e), 0);
+  $: totalOwedCents = netCents > 0 ? netCents : 0;
+  $: totalOweCents = netCents < 0 ? -netCents : 0;
 
   // Enrich balances user list so section isn't empty when trip has no members yet
   $: balanceUsers = (() => {
@@ -838,15 +833,6 @@
                 </div>
                 <div class="text-right min-w-[160px]">
                   <div class="font-semibold tabular-nums">${centsToString(e.amountCents)}</div>
-                  {#if me}
-                    {#if myDeltaCents(e) < 0}
-                      <div class="mt-1 inline-block px-2 py-0.5 rounded-full text-xs bg-red-500/15 text-red-700 dark:text-red-300 border border-red-500/20">You owe ${centsToString(Math.abs(myDeltaCents(e)))}</div>
-                    {:else if myDeltaCents(e) > 0}
-                      <div class="mt-1 inline-block px-2 py-0.5 rounded-full text-xs bg-green-500/15 text-green-700 dark:text-green-300 border border-green-500/20">You're owed ${centsToString(myDeltaCents(e))}</div>
-                    {:else}
-                      <div class="mt-1 inline-block px-2 py-0.5 rounded-full text-xs bg-gray-500/15 text-gray-700 dark:text-gray-300 border border-gray-500/20">Settled</div>
-                    {/if}
-                  {/if}
                   <div class="mt-2">
                     <button class="px-2 py-1 rounded-md text-xs border border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700/40" on:click={() => openEditor(e)}>Edit</button>
                   </div>
