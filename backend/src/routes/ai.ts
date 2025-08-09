@@ -115,9 +115,14 @@ router.post("/ai/parse", async (req: AuthenticatedRequest, res) => {
     },
   });
 
-  const memberIds = (
-    await prisma.tripMember.findMany({ where: { tripId: trip.id }, select: { userId: true } })
-  ).map((m) => m.userId);
+  const incurredAt = new Date();
+  const members = (await prisma.tripMember.findMany({
+    where: { tripId: trip.id },
+    select: { userId: true, joinedAt: true } as any,
+  })) as any[];
+  const memberIds = members
+    .filter((m: any) => new Date(m.joinedAt) <= incurredAt)
+    .map((m) => m.userId);
   const participants = memberIds.length > 0 ? memberIds : [req.user!.id];
   const per = amountNum / participants.length;
   await prisma.expenseSplit.createMany({

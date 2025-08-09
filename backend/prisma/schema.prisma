@@ -37,6 +37,7 @@ model TripMember {
   tripId  String
   userId  String
   role    String @default("member")
+  joinedAt DateTime @default(now())
 
   trip    Trip   @relation(fields: [tripId], references: [id])
   user    User   @relation(fields: [userId], references: [id])

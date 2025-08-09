@@ -40,6 +40,7 @@
   let amount = '';
   let category = '';
   let expenseType = '';
+  let incurredAtInput = '';
   let payerUserId: string = '';
   let splitByUserId: Record<string, string> = {}; // userId -> amount string
   let paidByUserId: Record<string, string> = {};  // userId -> amount string
@@ -89,6 +90,16 @@
   }
 
   function centsToString(c: number) { return (c / 100).toFixed(2); }
+  function nowLocalDatetime(): string {
+    const d = new Date();
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const yyyy = d.getFullYear();
+    const mm = pad(d.getMonth() + 1);
+    const dd = pad(d.getDate());
+    const hh = pad(d.getHours());
+    const mi = pad(d.getMinutes());
+    return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+  }
   function sumStrings(obj: Record<string, string>): number {
     return Object.values(obj).reduce((s, v) => s + (Number(v) || 0), 0);
   }
@@ -204,6 +215,7 @@
       if (!payerUserId) {
         payerUserId = me?.id || (members[0]?.user.id ?? '');
       }
+      if (!incurredAtInput) incurredAtInput = nowLocalDatetime();
       // Initialize equal split among splitParticipants and default payment by payer
       initializeAllocations();
     } catch (e: any) {
@@ -245,18 +257,17 @@
     const totalsError = validTotals();
     if (totalsError) { error = totalsError; return; }
     try {
-      const splits = Object.entries(splitByUserId)
-        .map(([userId, v]) => ({ userId, amount: Number(v) || 0 }))
-        .filter((s) => s.amount > 0);
       const payments = Object.entries(paidByUserId)
         .map(([userId, v]) => ({ userId, amount: Number(v) || 0 }))
         .filter((p) => p.amount > 0);
+      const incurredAtIso = incurredAtInput ? new Date(incurredAtInput).toISOString() : undefined;
       const res = await api('/expenses', {
         method: 'POST',
-        body: JSON.stringify({ tripId, description: description.trim(), amount: amountNum, category: category || undefined, expenseType: expenseType || undefined, splits, payments })
+        body: JSON.stringify({ tripId, description: description.trim(), amount: amountNum, category: category || undefined, expenseType: expenseType || undefined, incurredAt: incurredAtIso, payments })
       });
       expenses = [res.expense as Expense, ...expenses];
       description = ''; amount = ''; category = ''; expenseType = '';
+      incurredAtInput = nowLocalDatetime();
       success = 'Expense added successfully.';
       setTimeout(() => { success = null; }, 3000);
     } catch (e: any) {
@@ -479,6 +490,147 @@
     if (me && userId === me.id) return me.username;
     return 'Unknown';
   }
+
+  // ----- Expense editor modal -----
+  let showEditor = false;
+  let editing: Expense | null = null;
+  let editSplitMode: SplitMode = 'equal';
+  let editPaymentMode: PaymentMode = 'payer';
+  let editSplitByUserId: Record<string, string> = {};
+  let editPaidByUserId: Record<string, string> = {};
+  let editSplitPctByUserId: Record<string, string> = {};
+  let editPaidPctByUserId: Record<string, string> = {};
+  let editPayerUserId: string = '';
+
+  function openEditor(e: Expense) {
+    editing = e;
+    showEditor = true;
+    const total = e.amountCents / 100;
+    // Build user list from balanceUsers to ensure everyone is visible
+    // Initialize splits from existing amounts
+    const splitMap: Record<string, string> = {};
+    for (const u of balanceUsers) splitMap[u.id] = '0';
+    for (const s of e.splits) splitMap[s.userId] = (s.amountCents / 100).toFixed(2);
+    editSplitByUserId = splitMap;
+    // Infer equal mode if all non-zero equal; else custom_amounts
+    const nonZero = Object.values(splitMap).map(Number).filter((v) => v > 0);
+    const allEqual = nonZero.length > 1 && nonZero.every((v) => Math.abs(v - nonZero[0]) < 0.005);
+    editSplitMode = allEqual ? 'equal' : 'custom_amounts';
+    // Seed percentages to match current split
+    const ids = balanceUsers.map((u) => u.id);
+    const pctMap: Record<string, string> = {};
+    for (const id of ids) {
+      const v = Number(splitMap[id] || '0');
+      pctMap[id] = total > 0 ? ((v * 100) / total).toFixed(2) : '0';
+    }
+    editSplitPctByUserId = pctMap;
+
+    // Payments: prefer explicit payments; else creator covers all
+    const payMap: Record<string, string> = {};
+    for (const u of balanceUsers) payMap[u.id] = '0';
+    if (e.payments && e.payments.length > 0) {
+      for (const p of e.payments) payMap[p.userId] = (p.amountCents / 100).toFixed(2);
+      // Infer mode
+      const pvals = Object.values(payMap).map(Number).filter((v) => v > 0);
+      const pAllEq = pvals.length > 1 && pvals.every((v) => Math.abs(v - pvals[0]) < 0.005);
+      editPaymentMode = pAllEq ? 'equal' : 'custom_amounts';
+    } else {
+      payMap[e.createdBy.id] = total.toFixed(2);
+      editPaymentMode = 'payer';
+    }
+    editPaidByUserId = payMap;
+    editPayerUserId = e.createdBy.id;
+    // Seed pay percentages
+    const payPct: Record<string, string> = {};
+    for (const id of ids) {
+      const v = Number(payMap[id] || '0');
+      payPct[id] = total > 0 ? ((v * 100) / total).toFixed(2) : '0';
+    }
+    editPaidPctByUserId = payPct;
+    // Normalize amounts to total
+    recalcEditSplits();
+    recalcEditPayments();
+  }
+
+  function closeEditor() {
+    showEditor = false;
+    editing = null;
+  }
+
+  function recalcEditSplits() {
+    if (!editing) return;
+    const total = editing.amountCents / 100;
+    const ids = balanceUsers.map((u) => u.id);
+    if (editSplitMode === 'equal') {
+      const active = ids.filter((id) => Number(editSplitByUserId[id] || '0') > 0 || true);
+      const equalPct = active.length > 0 ? (100 / ids.length) : 0;
+      editSplitPctByUserId = Object.fromEntries(ids.map((id) => [id, equalPct.toFixed(2)]));
+      editSplitByUserId = allocateByPercent(total, editSplitPctByUserId, ids);
+    } else if (editSplitMode === 'custom_percentages') {
+      editSplitByUserId = allocateByPercent(total, editSplitPctByUserId, ids);
+    }
+  }
+
+  function recalcEditPayments() {
+    if (!editing) return;
+    const total = editing.amountCents / 100;
+    const ids = balanceUsers.map((u) => u.id);
+    if (editPaymentMode === 'payer') {
+      editPaidByUserId = Object.fromEntries(ids.map((id) => [id, id === editPayerUserId ? total.toFixed(2) : '0']));
+      editPaidPctByUserId = Object.fromEntries(ids.map((id) => [id, id === editPayerUserId ? '100' : '0']));
+    } else if (editPaymentMode === 'equal') {
+      const equalPct = ids.length > 0 ? (100 / ids.length) : 0;
+      editPaidPctByUserId = Object.fromEntries(ids.map((id) => [id, equalPct.toFixed(2)]));
+      editPaidByUserId = allocateByPercent(total, editPaidPctByUserId, ids);
+    } else if (editPaymentMode === 'custom_percentages') {
+      editPaidByUserId = allocateByPercent(total, editPaidPctByUserId, ids);
+    }
+  }
+
+  function editOnSplitModeChange(e: Event) {
+    editSplitMode = (e.target as HTMLSelectElement).value as SplitMode;
+    recalcEditSplits();
+  }
+  function editOnPaymentModeChange(e: Event) {
+    editPaymentMode = (e.target as HTMLSelectElement).value as PaymentMode;
+    recalcEditPayments();
+  }
+
+  function editorTotalsError(): string | null {
+    if (!editing) return 'No expense';
+    const total = editing.amountCents / 100;
+    const splitSum = sumStrings(editSplitByUserId);
+    const paidSum = sumStrings(editPaidByUserId);
+    if (Math.round(splitSum * 100) !== Math.round(total * 100)) return `Splits must sum to ${total.toFixed(2)}`;
+    if (Math.round(paidSum * 100) !== Math.round(total * 100)) return `Payments must sum to ${total.toFixed(2)}`;
+    return null;
+  }
+
+  async function saveExpenseEdits() {
+    error = null; success = null;
+    const err = editorTotalsError();
+    if (err) { error = err; return; }
+    if (!editing) return;
+    try {
+      const splits = Object.entries(editSplitByUserId)
+        .map(([userId, v]) => ({ userId, amount: Number(v) || 0 }))
+        .filter((s) => s.amount > 0);
+      const payments = Object.entries(editPaidByUserId)
+        .map(([userId, v]) => ({ userId, amount: Number(v) || 0 }))
+        .filter((p) => p.amount > 0);
+      const res = await api(`/expenses/${editing.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ splits, payments })
+      });
+      const updated = res.expense as Expense;
+      expenses = expenses.map((x) => (x.id === updated.id ? updated : x));
+      success = 'Expense updated.';
+      setTimeout(() => { success = null; }, 2500);
+      closeEditor();
+    } catch (e: any) {
+      error = e.message;
+    }
+  }
 </script>
 
 {#if error}
@@ -651,6 +803,9 @@
                     <div class="mt-1 inline-block px-2 py-0.5 rounded-full text-xs bg-gray-500/15 text-gray-700 dark:text-gray-300 border border-gray-500/20">Settled</div>
                   {/if}
                 {/if}
+                <div class="mt-2">
+                  <button class="px-2 py-1 rounded-md text-xs border border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700/40" on:click={() => openEditor(e)}>Edit</button>
+                </div>
               </div>
             </div>
           {/each}
@@ -664,6 +819,11 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <input class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" placeholder="Description" bind:value={description} />
         <input type="number" min="0" step="0.01" class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" placeholder="Amount" bind:value={amount} on:change={onAmountChange} />
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+        <input type="datetime-local" class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={incurredAtInput} />
+        <input class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" placeholder="Category (optional)" bind:value={category} />
       </div>
 
       <div>
@@ -754,3 +914,76 @@
     </div>
   </div>
 </div>
+
+{#if showEditor && editing}
+  <div class="fixed inset-0 z-20 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/40" role="button" tabindex="0" on:click={closeEditor} on:keydown={(e) => ((e as KeyboardEvent).key === 'Enter' || (e as KeyboardEvent).key === 'Escape') && closeEditor()}></div>
+    <div class="relative z-30 w-full max-w-2xl rounded-2xl bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10 shadow-lg p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-semibold">Edit expense</h3>
+        <button class="px-2 py-1 text-sm rounded-md border border-black/5 dark:border-white/10" on:click={closeEditor}>Close</button>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+        <div>
+          <div class="text-xs opacity-70 mb-1">Who pays how much</div>
+          <select class="text-xs p-1 rounded-md bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10 mb-2" bind:value={editPaymentMode} on:change={editOnPaymentModeChange}>
+            <option value="payer">Payer covers all</option>
+            <option value="equal">Split equally</option>
+            <option value="custom_percentages">Custom percentages</option>
+            <option value="custom_amounts">Custom amounts</option>
+          </select>
+          <div class="space-y-1.5">
+            {#each balanceUsers as u}
+              <div class="flex items-center gap-2 py-0.5 min-w-0">
+                <span class="w-28 text-sm opacity-80">{u.username}</span>
+                {#if editPaymentMode === 'custom_percentages'}
+                  <div class="flex items-center gap-2 flex-1 min-w-0">
+                    <input type="number" min="0" max="100" step="0.01" class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={editPaidPctByUserId[u.id]} on:input={(e) => { editPaidPctByUserId[u.id] = clampPercent((e.target as HTMLInputElement).value); recalcEditPayments(); }} />
+                    <span class="text-sm opacity-70">%</span>
+                    <div class="w-full min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{editPaidByUserId[u.id] || '0.00'}</div>
+                  </div>
+                {:else if editPaymentMode === 'equal' || editPaymentMode === 'payer'}
+                  <div class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{editPaidByUserId[u.id] || '0.00'}</div>
+                {:else}
+                  <input type="number" min="0" step="0.01" class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={editPaidByUserId[u.id]} on:input={(e) => editPaidByUserId[u.id] = (e.target as HTMLInputElement).value} />
+                {/if}
+              </div>
+            {/each}
+          </div>
+          <div class="text-xs opacity-70 mt-1">Total payments: ${sumStrings(editPaidByUserId).toFixed(2)}</div>
+        </div>
+        <div>
+          <div class="text-xs opacity-70 mb-1">Who owes how much</div>
+          <select class="text-xs p-1 rounded-md bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10 mb-2" bind:value={editSplitMode} on:change={editOnSplitModeChange}>
+            <option value="equal">Split equally</option>
+            <option value="custom_percentages">Custom percentages</option>
+            <option value="custom_amounts">Custom amounts</option>
+          </select>
+          <div class="space-y-1.5">
+            {#each balanceUsers as u}
+              <div class="flex items-center gap-2 py-0.5 min-w-0">
+                <span class="w-28 text-sm opacity-80">{u.username}</span>
+                {#if editSplitMode === 'custom_percentages'}
+                  <div class="flex items-center gap-2 flex-1 min-w-0">
+                    <input type="number" min="0" max="100" step="0.01" class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={editSplitPctByUserId[u.id]} on:input={(e) => { editSplitPctByUserId[u.id] = clampPercent((e.target as HTMLInputElement).value); recalcEditSplits(); }} />
+                    <span class="text-sm opacity-70">%</span>
+                    <div class="w-full min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{editSplitByUserId[u.id] || '0.00'}</div>
+                  </div>
+                {:else if editSplitMode === 'equal'}
+                  <div class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{editSplitByUserId[u.id] || '0.00'}</div>
+                {:else}
+                  <input type="number" min="0" step="0.01" class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={editSplitByUserId[u.id]} on:input={(e) => editSplitByUserId[u.id] = (e.target as HTMLInputElement).value} />
+                {/if}
+              </div>
+            {/each}
+          </div>
+          <div class="text-xs opacity-70 mt-1">Total splits: ${sumStrings(editSplitByUserId).toFixed(2)}</div>
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-2">
+        <button class="px-3 py-2 rounded-md border border-black/5 dark:border-white/10" on:click={closeEditor}>Cancel</button>
+        <button class="px-3 py-2 rounded-md bg-indigo-600 text-white" on:click={saveExpenseEdits}>Save</button>
+      </div>
+    </div>
+  </div>
+{/if}
