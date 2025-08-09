@@ -2,6 +2,11 @@
   import { currentUser } from '../lib/auth';
   let user: any;
   currentUser.subscribe((u) => (user = u));
+
+  // If already authenticated, skip the landing page
+  $: if (user) {
+    window.location.hash = '#/dashboard';
+  }
 </script>
 
 <!-- Hero -->

@@ -9,7 +9,7 @@
     error = null;
     try {
       await register(username, password);
-      window.location.hash = '#/';
+      window.location.hash = '#/dashboard';
     } catch (e: any) {
       error = e.message;
     }

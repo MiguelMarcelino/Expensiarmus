@@ -36,4 +36,7 @@ export function logout() {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
   currentUser.set(null);
+  if (typeof window !== 'undefined') {
+    window.location.hash = '#/';
+  }
 }

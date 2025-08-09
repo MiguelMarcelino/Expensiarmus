@@ -32,7 +32,7 @@
 
   onMount(() => {
     if (!user) {
-      window.location.hash = '#/login';
+      window.location.hash = '#/';
       return;
     }
     load();
