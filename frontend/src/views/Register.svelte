@@ -23,15 +23,15 @@
   <form on:submit|preventDefault={submit} class="space-y-3">
     <div>
       <label class="block text-sm mb-1">Username</label>
-      <input class="w-full border rounded p-2" bind:value={username} required />
+      <input class="w-full border rounded p-2 bg-transparent dark:bg-transparent" bind:value={username} required />
     </div>
     <div>
       <label class="block text-sm mb-1">Email (optional)</label>
-      <input type="email" class="w-full border rounded p-2" bind:value={email} />
+      <input type="email" class="w-full border rounded p-2 bg-transparent dark:bg-transparent" bind:value={email} />
     </div>
     <div>
       <label class="block text-sm mb-1">Password</label>
-      <input type="password" class="w-full border rounded p-2" bind:value={password} required />
+      <input type="password" class="w-full border rounded p-2 bg-transparent dark:bg-transparent" bind:value={password} required />
     </div>
     <button class="w-full py-2 rounded bg-blue-600 text-white hover:bg-blue-700">Register</button>
   </form>
