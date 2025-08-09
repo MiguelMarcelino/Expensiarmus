@@ -223,9 +223,13 @@
     return list;
   })();
   $: splitParticipants = (() => {
-    if (members.length > 0) return members.map((m) => m.user);
-    if (me) return [{ id: me.id, username: me.username }];
-    return [] as { id: string; username: string }[];
+    // Everyone except the selected payer owes the payer by default
+    let users: { id: string; username: string }[] = [];
+    if (members.length > 0) users = members.map((m) => m.user);
+    else if (me) users = [{ id: me.id, username: me.username }];
+    // Exclude the payer from owing side; if that empties the list, fall back to including the payer
+    const filtered = users.filter((u) => u.id !== payerUserId);
+    return (filtered.length > 0 ? filtered : (users.length > 0 ? [users[0]] : [])) as { id: string; username: string }[];
   })();
 
   async function load() {
@@ -236,6 +240,13 @@
         api(`/trips/${tripId}/expenses`),
       ]);
       members = membersRes.members;
+      // Ensure owner is available as payer option even if not listed as a member
+      if (membersRes.owner) {
+        const ownerUser = membersRes.owner as { id: string; username: string };
+        if (!members.find((m) => m.user.id === ownerUser.id)) {
+          members = [{ user: ownerUser }, ...members];
+        }
+      }
       expenses = uniqueById(expensesRes.expenses);
       if (!payerUserId) {
         payerUserId = me?.id || (members[0]?.user.id ?? '');
@@ -243,8 +254,9 @@
       if (expenses.length > 0 && expenses[0].category) {
         tripName = expenses[0].category;
       }
-      // Initialize equal split among splitParticipants
-      const participantIds = splitParticipants.map((u) => u.id);
+      // Initialize equal split among participants excluding the payer
+      const allUsers = members.length > 0 ? members.map((m) => m.user) : (me ? [{ id: me.id, username: me.username }] : []);
+      const participantIds = allUsers.filter((u) => u.id !== payerUserId).map((u) => u.id);
       if (participantIds.length > 0 && Number(amount) > 0) {
         const per = Number(amount) / participantIds.length;
         splitByUserId = Object.fromEntries(participantIds.map((id) => [id, per.toFixed(2)]));
@@ -274,8 +286,9 @@
   }
 
   function onPayerChange() {
-    // Respect current payment mode when payer changes
+    // When payer changes, recalc both payments and splits (others owe the payer)
     recalcPayments();
+    recalcSplits();
   }
 
   function validTotals(): string | null {
@@ -292,18 +305,25 @@
     const amountNum = Number(amount);
     if (!tripId) { error = 'No trip selected.'; return; }
     if (!description.trim() || !(amountNum > 0)) { error = 'Enter description and a positive amount.'; return; }
+    // Ensure allocations reflect latest amount/payer/modes just before submit
+    recalcSplits();
+    recalcPayments();
     const totalsError = validTotals();
     if (totalsError) { error = totalsError; return; }
     try {
       const splits = Object.entries(splitByUserId)
         .map(([userId, v]) => ({ userId, amount: Number(v) || 0 }))
         .filter((s) => s.amount > 0);
-      const payments = Object.entries(paidByUserId)
+      let payments = Object.entries(paidByUserId)
         .map(([userId, v]) => ({ userId, amount: Number(v) || 0 }))
         .filter((p) => p.amount > 0);
+      // Safety: if for any reason payments are empty, ensure selected payer covers all
+      if (payments.length === 0 && payerUserId && amountNum > 0) {
+        payments = [{ userId: payerUserId, amount: amountNum }];
+      }
       const res = await api('/expenses', {
         method: 'POST',
-        body: JSON.stringify({ tripId, description: description.trim(), amount: amountNum, category: category || undefined, expenseType: expenseType || undefined, incurredAt: incurredAtInput ? new Date(incurredAtInput).toISOString() : undefined, splits, payments })
+        body: JSON.stringify({ tripId, description: description.trim(), amount: amountNum, category: category || undefined, expenseType: expenseType || undefined, incurredAt: incurredAtInput ? new Date(incurredAtInput).toISOString() : undefined, payerUserId, splits, payments })
       });
       upsertExpense(res.expense as Expense);
       description = ''; amount = ''; category = ''; expenseType = '';
@@ -540,11 +560,8 @@
   // ----- Expense editor modal -----
   let showEditor = false;
   let editing: Expense | null = null;
-  let editSplitMode: SplitMode = 'equal';
   let editPaymentMode: PaymentMode = 'payer';
-  let editSplitByUserId: Record<string, string> = {};
   let editPaidByUserId: Record<string, string> = {};
-  let editSplitPctByUserId: Record<string, string> = {};
   let editPaidPctByUserId: Record<string, string> = {};
   let editPayerUserId: string = '';
 
@@ -552,25 +569,7 @@
     editing = e;
     showEditor = true;
     const total = e.amountCents / 100;
-    // Build user list from balanceUsers to ensure everyone is visible
-    // Initialize splits from existing amounts
-    const splitMap: Record<string, string> = {};
-    for (const u of balanceUsers) splitMap[u.id] = '0';
-    for (const s of e.splits) splitMap[s.userId] = (s.amountCents / 100).toFixed(2);
-    editSplitByUserId = splitMap;
-    // Infer equal mode if all non-zero equal; else custom_amounts
-    const nonZero = Object.values(splitMap).map(Number).filter((v) => v > 0);
-    const allEqual = nonZero.length > 1 && nonZero.every((v) => Math.abs(v - nonZero[0]) < 0.005);
-    editSplitMode = allEqual ? 'equal' : 'custom_amounts';
-    // Seed percentages to match current split
     const ids = balanceUsers.map((u) => u.id);
-    const pctMap: Record<string, string> = {};
-    for (const id of ids) {
-      const v = Number(splitMap[id] || '0');
-      pctMap[id] = total > 0 ? ((v * 100) / total).toFixed(2) : '0';
-    }
-    editSplitPctByUserId = pctMap;
-
     // Payments: prefer explicit payments; else creator covers all
     const payMap: Record<string, string> = {};
     for (const u of balanceUsers) payMap[u.id] = '0';
@@ -594,27 +593,12 @@
     }
     editPaidPctByUserId = payPct;
     // Normalize amounts to total
-    recalcEditSplits();
     recalcEditPayments();
   }
 
   function closeEditor() {
     showEditor = false;
     editing = null;
-  }
-
-  function recalcEditSplits() {
-    if (!editing) return;
-    const total = editing.amountCents / 100;
-    const ids = balanceUsers.map((u) => u.id);
-    if (editSplitMode === 'equal') {
-      const active = ids.filter((id) => Number(editSplitByUserId[id] || '0') > 0 || true);
-      const equalPct = active.length > 0 ? (100 / ids.length) : 0;
-      editSplitPctByUserId = Object.fromEntries(ids.map((id) => [id, equalPct.toFixed(2)]));
-      editSplitByUserId = allocateByPercent(total, editSplitPctByUserId, ids);
-    } else if (editSplitMode === 'custom_percentages') {
-      editSplitByUserId = allocateByPercent(total, editSplitPctByUserId, ids);
-    }
   }
 
   function recalcEditPayments() {
@@ -633,10 +617,6 @@
     }
   }
 
-  function editOnSplitModeChange(e: Event) {
-    editSplitMode = (e.target as HTMLSelectElement).value as SplitMode;
-    recalcEditSplits();
-  }
   function editOnPaymentModeChange(e: Event) {
     editPaymentMode = (e.target as HTMLSelectElement).value as PaymentMode;
     recalcEditPayments();
@@ -645,9 +625,7 @@
   function editorTotalsError(): string | null {
     if (!editing) return 'No expense';
     const total = editing.amountCents / 100;
-    const splitSum = sumStrings(editSplitByUserId);
     const paidSum = sumStrings(editPaidByUserId);
-    if (Math.round(splitSum * 100) !== Math.round(total * 100)) return `Splits must sum to ${total.toFixed(2)}`;
     if (Math.round(paidSum * 100) !== Math.round(total * 100)) return `Payments must sum to ${total.toFixed(2)}`;
     return null;
   }
@@ -658,15 +636,12 @@
     if (err) { error = err; return; }
     if (!editing) return;
     try {
-      const splits = Object.entries(editSplitByUserId)
-        .map(([userId, v]) => ({ userId, amount: Number(v) || 0 }))
-        .filter((s) => s.amount > 0);
       const payments = Object.entries(editPaidByUserId)
         .map(([userId, v]) => ({ userId, amount: Number(v) || 0 }))
         .filter((p) => p.amount > 0);
       const res = await api(`/expenses/${editing.id}`, {
         method: 'PUT',
-        body: JSON.stringify({ splits, payments })
+        body: JSON.stringify({ payments })
       });
       upsertExpense(res.expense as Expense);
       success = 'Expense updated.';
@@ -991,7 +966,7 @@
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
         <div>
-          <div class="text-xs opacity-70 mb-1">Who pays how much</div>
+          <div class="text-xs opacity-70 mb-1">Who paid how much</div>
           <select class="text-xs p-1 rounded-md bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10 mb-2" bind:value={editPaymentMode} on:change={editOnPaymentModeChange}>
             <option value="payer">Payer covers all</option>
             <option value="equal">Split equally</option>
@@ -1018,33 +993,7 @@
           </div>
           <div class="text-xs opacity-70 mt-1">Total payments: ${sumStrings(editPaidByUserId).toFixed(2)}</div>
         </div>
-        <div>
-          <div class="text-xs opacity-70 mb-1">Who owes how much</div>
-          <select class="text-xs p-1 rounded-md bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10 mb-2" bind:value={editSplitMode} on:change={editOnSplitModeChange}>
-            <option value="equal">Split equally</option>
-            <option value="custom_percentages">Custom percentages</option>
-            <option value="custom_amounts">Custom amounts</option>
-          </select>
-          <div class="space-y-1.5">
-            {#each balanceUsers as u}
-              <div class="flex items-center gap-2 py-0.5 min-w-0">
-                <span class="w-28 text-sm opacity-80">{u.username}</span>
-                {#if editSplitMode === 'custom_percentages'}
-                  <div class="flex items-center gap-2 flex-1 min-w-0">
-                    <input type="number" min="0" max="100" step="0.01" class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={editSplitPctByUserId[u.id]} on:input={(e) => { editSplitPctByUserId[u.id] = clampPercent((e.target as HTMLInputElement).value); recalcEditSplits(); }} />
-                    <span class="text-sm opacity-70">%</span>
-                    <div class="w-full min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{editSplitByUserId[u.id] || '0.00'}</div>
-                  </div>
-                {:else if editSplitMode === 'equal'}
-                  <div class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{editSplitByUserId[u.id] || '0.00'}</div>
-                {:else}
-                  <input type="number" min="0" step="0.01" class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={editSplitByUserId[u.id]} on:input={(e) => editSplitByUserId[u.id] = (e.target as HTMLInputElement).value} />
-                {/if}
-              </div>
-            {/each}
-          </div>
-          <div class="text-xs opacity-70 mt-1">Total splits: ${sumStrings(editSplitByUserId).toFixed(2)}</div>
-        </div>
+        
       </div>
       <div class="flex items-center justify-end gap-2">
         <button class="px-3 py-2 rounded-md border border-black/5 dark:border-white/10" on:click={closeEditor}>Cancel</button>

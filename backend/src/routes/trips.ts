@@ -29,6 +29,7 @@ router.get("/trips/:tripId/members", async (req: AuthenticatedRequest, res) => {
 
   const trip = await prisma.trip.findFirst({
     where: { id: tripId, OR: [{ ownerId: userId }, { members: { some: { userId } } }] },
+    include: { owner: { select: { id: true, username: true, email: true } } },
   });
   if (!trip) return res.status(404).json({ error: "Trip not found or access denied" });
 
@@ -44,7 +45,8 @@ router.get("/trips/:tripId/members", async (req: AuthenticatedRequest, res) => {
       joinedAt: member.joinedAt
     }
   }));
-  res.json({ members: transformedMembers });
+  const owner = trip.owner ? { id: trip.owner.id, username: trip.owner.username, email: trip.owner.email } : null;
+  res.json({ members: transformedMembers, owner });
 });
 
 router.get("/trips/:tripId/activity", async (req: AuthenticatedRequest, res) => {

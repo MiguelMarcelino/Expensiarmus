@@ -40,6 +40,7 @@ router.post("/expenses", async (req: AuthenticatedRequest, res) => {
     unitPrice: z.number().positive().optional(),
     amount: z.number().positive(),
     incurredAt: z.string().datetime().optional(),
+    payerUserId: z.string().optional(),
     splits: z
       .array(z.object({ userId: z.string(), amount: z.number().nonnegative() }))
       .optional(),
@@ -75,17 +76,20 @@ router.post("/expenses", async (req: AuthenticatedRequest, res) => {
         },
       });
 
-      // Splits
+      // Splits: by default, everyone except the payer owes the payer
       let splitsPayload = data.splits;
       if (!splitsPayload || splitsPayload.length === 0) {
         const members = (await tx.tripMember.findMany({
           where: { tripId: data.tripId },
           select: { userId: true, joinedAt: true } as any,
         })) as any[];
-        const memberIds = members
+        const allMemberIds = members
           .filter((m: any) => !m.joinedAt || new Date(m.joinedAt) <= incurredAt)
           .map((m) => m.userId);
-        const participants = memberIds.length > 0 ? memberIds : [req.user!.id];
+        const payerId = data.payerUserId ?? req.user!.id;
+        const oweIds = allMemberIds.filter((id) => id !== payerId);
+        // If no other participants, fall back to payer alone (no one owes anyone effectively)
+        const participants = oweIds.length > 0 ? oweIds : [payerId];
         const per = data.amount / participants.length;
         splitsPayload = participants.map((uid) => ({ userId: uid, amount: per }));
       }
@@ -105,7 +109,8 @@ router.post("/expenses", async (req: AuthenticatedRequest, res) => {
       // Payments
       let paymentsPayload = data.payments;
       if (!paymentsPayload || paymentsPayload.length === 0) {
-        paymentsPayload = [{ userId: req.user!.id, amount: data.amount }];
+        const fallbackPayer = data.payerUserId ?? req.user!.id;
+        paymentsPayload = [{ userId: fallbackPayer, amount: data.amount }];
       }
       const paymentsSum = Math.round(paymentsPayload.reduce((sum, p) => sum + toCents(p.amount), 0));
       if (paymentsSum !== amountCents) {
