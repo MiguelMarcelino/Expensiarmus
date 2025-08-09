@@ -401,12 +401,12 @@
   <div class="space-y-4">
     <div class="rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm space-y-3">
       <h3 class="font-semibold">Add expense (manual)</h3>
-      <input class="w-full p-2" placeholder="Description" bind:value={description} />
-      <input type="number" min="0" step="0.01" class="w-full p-2" placeholder="Amount" bind:value={amount} on:change={onAmountChange} />
+      <input class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" placeholder="Description" bind:value={description} />
+      <input type="number" min="0" step="0.01" class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" placeholder="Amount" bind:value={amount} on:change={onAmountChange} />
 
       <div>
-        <label class="text-xs opacity-70 block mb-1">Payer</label>
-        <select class="w-full p-2" bind:value={payerUserId} on:change={onPayerChange}>
+        <label class="text-xs opacity-70 block mb-1" for="payer-select">Payer</label>
+        <select id="payer-select" class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={payerUserId} on:change={onPayerChange}>
           {#each payerOptions as u}
             <option value={u.id}>{u.username}</option>
           {/each}
@@ -418,7 +418,7 @@
         {#each payerOptions as u}
           <div class="flex items-center gap-2 py-1">
             <span class="w-28 text-sm opacity-80">{u.username}</span>
-            <input type="number" min="0" step="0.01" class="flex-1 p-2" bind:value={paidByUserId[u.id]} on:input={(e) => paidByUserId[u.id] = (e.target as HTMLInputElement).value} />
+            <input type="number" min="0" step="0.01" class="flex-1 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidByUserId[u.id]} on:input={(e) => paidByUserId[u.id] = (e.target as HTMLInputElement).value} />
           </div>
         {/each}
         <div class="text-xs opacity-70 mt-1">Total payments: ${sumStrings(paidByUserId).toFixed(2)}</div>
@@ -429,7 +429,7 @@
         {#each splitParticipants as u}
           <div class="flex items-center gap-2 py-1">
             <span class="w-28 text-sm opacity-80">{u.username}</span>
-            <input type="number" min="0" step="0.01" class="flex-1 p-2" bind:value={splitByUserId[u.id]} on:input={(e) => splitByUserId[u.id] = (e.target as HTMLInputElement).value} />
+            <input type="number" min="0" step="0.01" class="flex-1 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={splitByUserId[u.id]} on:input={(e) => splitByUserId[u.id] = (e.target as HTMLInputElement).value} />
           </div>
         {/each}
         <div class="text-xs opacity-70 mt-1">Total splits: ${sumStrings(splitByUserId).toFixed(2)}</div>
@@ -440,7 +440,7 @@
 
     <div class="rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm space-y-3">
       <h3 class="font-semibold">AI expense entry</h3>
-      <textarea class="w-full p-2" rows="3" placeholder="Describe the expense..." bind:value={aiInput}></textarea>
+      <textarea class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" rows="3" placeholder="Describe the expense..." bind:value={aiInput}></textarea>
       <button class="w-full py-2 rounded-lg bg-purple-600 text-white disabled:opacity-60 disabled:cursor-not-allowed" on:click={aiParse} disabled={!aiInput.trim()}>Parse & Add</button>
       <p class="text-xs opacity-70">Example: "I want to register an expense for my trip to Japan. I just bought two flights at 1500 each and need you to add that to my Japan trip."</p>
     </div>
@@ -448,7 +448,7 @@
     <div class="rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm space-y-3">
       <h3 class="font-semibold">Add member</h3>
       <div class="flex gap-2">
-        <input class="flex-1 p-2" placeholder="Username" bind:value={memberUsername} />
+        <input class="flex-1 p-2 rounded-lg bg-white dark:bg-gray-800" placeholder="Username" bind:value={memberUsername} />
         <button class="px-4 rounded-lg bg-gray-700 text-white disabled:opacity-60 disabled:cursor-not-allowed" on:click={addMember} disabled={!memberUsername.trim()}>Add</button>
       </div>
     </div>
