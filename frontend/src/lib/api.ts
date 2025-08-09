@@ -44,10 +44,22 @@ export async function api(path: string, options: RequestInit = {}) {
     ...options,
     headers,
   });
+  // Read once as text so we can handle empty and non-JSON bodies safely
+  const text = await res.text().catch(() => '');
+  let data: any = null;
+  if (text && text.trim().length > 0) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = null; // Non-JSON body
+    }
+  }
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    const message = extractErrorMessage(err, res.status);
+    const message = extractErrorMessage(data, res.status);
     throw new Error(message);
   }
-  return res.json();
+  if (res.status === 204 || data == null) {
+    return {} as any;
+  }
+  return data;
 }
