@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { api } from '../lib/api';
   import { currentUser } from '../lib/auth';
-  import type { User } from '../lib/auth';
+  import type { User } from '../lib/types';
   import ExpenseIcon from '../lib/ExpenseIcon.svelte';
 
   type Trip = { id: string; name: string; createdAt: string };

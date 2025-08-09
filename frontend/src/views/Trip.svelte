@@ -2,29 +2,18 @@
   import { onMount } from 'svelte';
   import { api } from '../lib/api';
   import { currentUser } from '../lib/auth';
-  import type { User } from '../lib/auth';
-  import ExpenseIcon from '../lib/ExpenseIcon.svelte';
   import { fade, fly } from 'svelte/transition';
+  import ExpenseItem from '../lib/ExpenseItem.svelte';
+  import BalancesCard from '../lib/BalancesCard.svelte';
+  import ActivityList from '../lib/ActivityList.svelte';
+  import AddMember from '../lib/AddMember.svelte';
+  import type { Member, Expense, ActivityEvent, SplitMode, PaymentMode, User } from '../lib/types';
 
   export let params: { id: string };
   let tripId: string = '';
   $: tripId = params?.id || '';
 
-  type Member = { user: { id: string; username: string; joinedAt?: string } };
-  type Expense = {
-    id: string;
-    description: string;
-    category?: string;
-    expenseType?: string;
-    quantity?: number;
-    unitPriceCents?: number | null;
-    amountCents: number;
-    incurredAt: string;
-    createdAt?: string;
-    createdBy: { id: string; username: string };
-    splits: { userId: string; amountCents: number }[];
-    payments?: { userId: string; amountCents: number }[];
-  };
+  // Types moved to ../lib/types
 
   let me: User | null = null;
   currentUser.subscribe((u) => (me = u));
@@ -59,38 +48,7 @@
   // AI form
   let aiInput = '';
 
-  // member form
-  let memberUsername = '';
-  let userSuggestions: { id: string; username: string; email?: string | null }[] = [];
-  let searchingUsers = false;
-  let userSearchTimer: any = null;
-
-  function onMemberInput() {
-    // Debounce search
-    if (userSearchTimer) clearTimeout(userSearchTimer);
-    const q = memberUsername.trim();
-    if (!q) {
-      userSuggestions = [];
-      return;
-    }
-    userSearchTimer = setTimeout(async () => {
-      try {
-        searchingUsers = true;
-        const res = await api(`/users/search?q=${encodeURIComponent(q)}&excludeTripId=${encodeURIComponent(tripId)}`);
-        userSuggestions = (res.users || []) as { id: string; username: string; email?: string | null }[];
-      } catch (e) {
-        // ignore errors in suggest UI
-      } finally {
-        searchingUsers = false;
-      }
-    }, 250);
-  }
-
-  async function selectUserSuggestion(u: { id: string; username: string }) {
-    memberUsername = u.username;
-    userSuggestions = [];
-    await addMember();
-  }
+  // member form moved into AddMember component
 
   function centsToString(c: number) { return (c / 100).toFixed(2); }
   function sumStrings(obj: Record<string, string>): number {
@@ -223,12 +181,6 @@
     : null;
 
   // ----- Activity feed -----
-  type ActivityEvent = {
-    id: string;
-    kind: 'member_joined' | 'expense_created' | 'expense_edited';
-    at: string; // ISO date
-    text: string;
-  };
   let activeTab: 'expenses' | 'activity' = 'expenses';
   let activityEvents: ActivityEvent[] = [];
   
@@ -556,24 +508,7 @@
     }
   }
 
-  async function addMember() {
-    error = null; success = null;
-    try {
-      const res = await api(`/trips/${tripId}/members`, { method: 'POST', body: JSON.stringify({ username: memberUsername }) });
-      if (res?.members) {
-        members = res.members as Member[];
-      }
-      memberUsername = '';
-      userSuggestions = [];
-      success = 'Member added.';
-      setTimeout(() => { success = null; }, 3000);
-      
-      // Refresh activity to show the new member join event
-      await loadActivity();
-    } catch (e: any) {
-      error = e.message;
-    }
-  }
+  // Member add handled by AddMember component
 
   // Balance summary (who owes whom)
   function computeBalances() {
@@ -862,46 +797,14 @@
 
 <!-- Summary -->
 <section class="mb-6">
-  <div class="rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm">
-    <h2 class="font-semibold mb-3">Balances</h2>
-    <div class="text-sm grid md:grid-cols-2 gap-6">
-      <div>
-        {#if balanceUsers.length === 0}
-          <div class="text-sm opacity-60">No participants yet.</div>
-        {:else}
-          {#each balanceUsers as u}
-            <div class="flex justify-between py-1.5">
-              <span>{u.username}{#if me && u.id === me.id}<span class="ml-1 text-xs opacity-60">(you)</span>{/if}</span>
-              <span class="tabular-nums {balances[u.id] >= 0 ? 'text-green-600' : 'text-red-600'}">
-                ${centsToString(Math.abs(balances[u.id] || 0))}
-                {balances[u.id] >= 0 ? ' owed' : ' owes'}
-              </span>
-            </div>
-          {/each}
-        {/if}
-      </div>
-      <div>
-        <div class="opacity-70 mb-1">Suggested transfers</div>
-        {#if transfers.length === 0}
-          <div class="text-sm opacity-60">All settled</div>
-        {:else}
-          <div class="space-y-1">
-            {#each transfers as t}
-              <div class="flex items-center justify-between py-1.5">
-                <div class="text-sm">
-                  <span>{displayName(t.from)}</span>
-                  <span class="opacity-70"> → </span>
-                  <span>{displayName(t.to)}</span>
-                </div>
-                <span class="inline-block px-2 py-0.5 rounded-full text-xs bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/20 tabular-nums">${centsToString(t.amountCents)}</span>
-              </div>
-            {/each}
-          </div>
-        {/if}
-      </div>
-      
-    </div>
-  </div>
+  <BalancesCard
+    {balanceUsers}
+    {balances}
+    {transfers}
+    {centsToString}
+    {me}
+    {displayName}
+  />
 </section>
 
 <div class="grid md:grid-cols-4 lg:grid-cols-5 gap-6 mt-2">
@@ -917,68 +820,18 @@
         {:else}
           <div class="space-y-3">
             {#each expenses as e (e.id)}
-              <div class="group rounded-xl border border-black/5 dark:border-white/10 bg-white/70 dark:bg-gray-800/60 backdrop-blur p-4 shadow-sm hover:shadow transition flex items-start justify-between">
-                <div class="flex items-start gap-3 min-w-0">
-                  <ExpenseIcon description={e.description} category={e.category} expenseType={e.expenseType} />
-                  <div class="min-w-0">
-                    <div class="font-medium truncate">{e.description}</div>
-                    <div class="mt-1 text-xs opacity-70 flex flex-wrap items-center gap-2">
-                      {#if e.expenseType || e.category}
-                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-500/10 text-gray-700 dark:text-gray-200 border border-gray-500/20">{e.expenseType || e.category}</span>
-                      {/if}
-                      <span class="truncate">paid by {payerName(e)}</span>
-                      <span class="opacity-60">·</span>
-                      <span class="truncate">added by {e.createdBy.username}</span>
-                      <span class="opacity-60">·</span>
-                      <span>{new Date(e.incurredAt).toLocaleString()}</span>
-                    </div>
-                  </div>
-                </div>
-                <div class="text-right min-w-[160px]">
-                  <div class="font-semibold tabular-nums">${centsToString(e.amountCents)}</div>
-                  <div class="mt-2">
-                    <div class="inline-flex items-center gap-2">
-                      <button class="px-2 py-1 rounded-md text-xs border border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700/40" on:click={() => openEditor(e)}>Edit</button>
-                      <button class="px-2 py-1 rounded-md text-xs border border-red-200 dark:border-red-700/50 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30" on:click={() => requestDelete(e.id, e.description)}>Delete</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <ExpenseItem
+                expense={e}
+                {centsToString}
+                {payerName}
+                on:edit={(ev) => openEditor(ev.detail)}
+                on:delete={(ev) => requestDelete(ev.detail.id, ev.detail.label)}
+              />
             {/each}
           </div>
         {/if}
       {:else}
-        {#if activityEvents.length === 0}
-          <div class="text-sm opacity-70">No activity yet.</div>
-        {:else}
-          <div class="space-y-3">
-            {#each activityEvents as ev}
-              <div class="rounded-xl border border-black/5 dark:border-white/10 bg-white/70 dark:bg-gray-800/60 backdrop-blur p-4 shadow-sm hover:shadow transition flex items-start justify-between">
-                <div class="flex items-start gap-3 min-w-0">
-                  {#if ev.kind === 'member_joined'}
-                    <div class="mt-0.5 shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/20">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-                    </div>
-                  {:else if ev.kind === 'expense_created'}
-                    <div class="mt-0.5 shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7H8"/><path d="M20 11H8"/><path d="M14 15H8"/><path d="M4 6v12"/></svg>
-                    </div>
-                  {:else}
-                    <div class="mt-0.5 shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/20">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                    </div>
-                  {/if}
-                  <div class="min-w-0">
-                    <div class="text-sm">
-                      <span>{ev.text}</span>
-                    </div>
-                    <div class="mt-1 text-xs opacity-70">{new Date(ev.at).toLocaleString()}</div>
-                  </div>
-                </div>
-              </div>
-            {/each}
-          </div>
-        {/if}
+        <ActivityList {activityEvents} />
       {/if}
     </div>
   </div>
@@ -1069,38 +922,11 @@
     </div>
 
     <div class="rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm space-y-3">
-      <h3 class="font-semibold">Add member</h3>
-      <div class="relative">
-        <div class="flex gap-2">
-          <input class="flex-1 p-2 rounded-lg bg-white dark:bg-gray-800" placeholder="Search by username or email" bind:value={memberUsername} on:input={onMemberInput} />
-          <button class="px-4 rounded-lg bg-gray-700 text-white disabled:opacity-60 disabled:cursor-not-allowed" on:click={addMember} disabled={!memberUsername.trim()}>Add</button>
-        </div>
-        {#if memberUsername.trim().length > 0}
-          <div class="absolute left-0 right-0 mt-1 rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-gray-800 shadow z-10">
-            {#if searchingUsers}
-              <div class="p-3 text-sm opacity-70">Searching…</div>
-            {:else if userSuggestions.length === 0}
-              <div class="p-3 text-sm opacity-70">No matches</div>
-            {:else}
-              <ul class="max-h-56 overflow-auto divide-y divide-gray-200/70 dark:divide-gray-700/50">
-                {#each userSuggestions as u}
-                  <li>
-                    <button class="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/40 flex items-center justify-between gap-3" on:click={() => selectUserSuggestion(u)}>
-                      <span class="truncate">
-                        <span class="font-medium">{u.username}</span>
-                        {#if u.email}
-                          <span class="ml-2 text-xs opacity-70">{u.email}</span>
-                        {/if}
-                      </span>
-                      <span class="text-xs rounded-full px-2 py-0.5 border border-black/5 dark:border-white/10">Add</span>
-                    </button>
-                  </li>
-                {/each}
-              </ul>
-            {/if}
-          </div>
-        {/if}
-      </div>
+      <AddMember
+        {tripId}
+        on:added={async () => { try { const res = await api(`/trips/${tripId}/members`); members = res.members as Member[]; success = 'Member added.'; setTimeout(() => success = null, 3000); await loadActivity(); } catch (e: any) { error = e.message; } }}
+        on:error={(e) => { error = e.detail; }}
+      />
     </div>
   </div>
 </div>

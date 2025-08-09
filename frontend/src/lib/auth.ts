@@ -1,7 +1,6 @@
 import { writable } from 'svelte/store';
 import { api } from './api';
-
-export type User = { id: string; username: string; email?: string | null };
+import type { User } from '../lib/types';
 
 export const currentUser = writable<User | null>(null);
 export const authReady = writable(false);

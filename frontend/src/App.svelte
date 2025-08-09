@@ -2,7 +2,7 @@
   import Router from 'svelte-spa-router';
   import routes from './routes';
   import { currentUser, loadFromStorage, logout } from './lib/auth';
-  import type { User } from './lib/auth';
+  import type { User } from './lib/types';
   import { onMount } from 'svelte';
 
   let user: User | null = null;
