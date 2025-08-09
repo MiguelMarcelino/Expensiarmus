@@ -2,8 +2,7 @@
 module.exports = {
   content: [
     './index.html',
-    './src/**/*.{svelte,ts,js}',
-    './node_modules/@skeletonlabs/skeleton/**/*.svelte'
+    './src/**/*.{svelte,ts,js}'
   ],
   theme: {
     extend: {},
