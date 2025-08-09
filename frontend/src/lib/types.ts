@@ -12,11 +12,12 @@ export type Expense = {
   quantity?: number;
   unitPriceCents?: number | null;
   amountCents: number;
+  currency?: string;
   incurredAt: string;
   createdAt?: string;
   createdBy: { id: string; username: string };
   splits: { userId: string; amountCents: number }[];
-  payments?: { userId: string; amountCents: number }[];
+  payments?: { userId: string; amountCents: number; currency?: string }[];
 };
 
 export type ActivityEvent = {

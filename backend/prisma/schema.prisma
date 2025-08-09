@@ -27,6 +27,7 @@ model Trip {
   ownerId   String
   owner     User         @relation("TripOwner", fields: [ownerId], references: [id])
   createdAt DateTime     @default(now())
+  baseCurrency String    @default("USD")
 
   members   TripMember[]
   expenses  Expense[]
@@ -55,6 +56,7 @@ model Expense {
   quantity      Int?          @default(1)
   unitPriceCents Int?
   amountCents   Int
+  currency      String        @default("USD")
   incurredAt    DateTime      @default(now())
   createdAt     DateTime      @default(now())
   deletedAt     DateTime?
@@ -82,6 +84,7 @@ model ExpensePayment {
   expenseId   String
   userId      String
   amountCents Int
+  currency    String @default("USD")
 
   expense   Expense @relation(fields: [expenseId], references: [id])
   user      User    @relation(fields: [userId], references: [id])

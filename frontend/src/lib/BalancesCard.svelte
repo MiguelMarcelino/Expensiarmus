@@ -5,6 +5,7 @@
   export let me: { id: string; username: string } | null = null;
   export let centsToString: (c: number) => string;
   export let displayName: (id: string) => string;
+  export let currencyLabel: string = 'USD';
 </script>
 
 <div class="rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm">
@@ -18,7 +19,7 @@
           <div class="flex justify-between py-1.5">
             <span>{u.username}{#if me && u.id === me.id}<span class="ml-1 text-xs opacity-60">(you)</span>{/if}</span>
             <span class="tabular-nums {balances[u.id] >= 0 ? 'text-green-600' : 'text-red-600'}">
-              ${centsToString(Math.abs(balances[u.id] || 0))}
+              {currencyLabel} ${centsToString(Math.abs(balances[u.id] || 0))}
               {balances[u.id] >= 0 ? ' owed' : ' owes'}
             </span>
           </div>
@@ -38,7 +39,7 @@
                 <span class="opacity-70"> → </span>
                 <span>{displayName(t.to)}</span>
               </div>
-              <span class="inline-block px-2 py-0.5 rounded-full text-xs bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/20 tabular-nums">${centsToString(t.amountCents)}</span>
+              <span class="inline-block px-2 py-0.5 rounded-full text-xs bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/20 tabular-nums">{currencyLabel} ${centsToString(t.amountCents)}</span>
             </div>
           {/each}
         </div>

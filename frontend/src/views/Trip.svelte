@@ -23,6 +23,9 @@
   let tripName = '';
   let error: string | null = null;
   let success: string | null = null;
+  let baseCurrency: string = 'USD';
+  let serverBalances: Record<string, number> | null = null;
+  let serverTransfers: { from: string; to: string; amountCents: number }[] | null = null;
   // Users to show in balances (members + me + expense creators)
   let balanceUsers: { id: string; username: string }[] = [];
 
@@ -35,7 +38,10 @@
   let payerUserId: string = '';
   let splitByUserId: Record<string, string> = {}; // userId -> amount string
   let paidByUserId: Record<string, string> = {};  // userId -> amount string
+  let paidCurrencyByUserId: Record<string, string> = {}; // userId -> currency code
   let selectedSplitUserIdMap: Record<string, boolean> = {};
+  let expenseCurrency: string = 'USD';
+  import { currencies } from '../lib/currencies';
 
   // Modes and percentage storage
   type SplitMode = 'equal' | 'custom_amounts' | 'custom_percentages';
@@ -126,8 +132,8 @@
     return myPaid - mySplit; // >0 you're owed, <0 you owe
   }
 
-  // Netting across expenses: compute single net, then derive owe/owed displays
-  $: netCents = expenses.reduce((sum, e) => sum + myDeltaCents(e), 0);
+  // Netting across expenses: prefer server balances when available
+  $: netCents = (serverBalances && me) ? (serverBalances[me.id] || 0) : expenses.reduce((sum, e) => sum + myDeltaCents(e), 0);
   $: totalOwedCents = netCents > 0 ? netCents : 0;
   $: totalOweCents = netCents < 0 ? -netCents : 0;
 
@@ -217,11 +223,14 @@
   async function load() {
     error = null;
     try {
-      const [membersRes, expensesRes] = await Promise.all([
+      const [membersRes, expensesRes, balancesRes] = await Promise.all([
         api(`/trips/${tripId}/members`),
         api(`/trips/${tripId}/expenses`),
+        api(`/trips/${tripId}/balances`).catch(() => ({ baseCurrency: 'USD', balances: {}, transfers: [] })),
       ]);
       members = membersRes.members;
+      baseCurrency = (membersRes.baseCurrency || balancesRes.baseCurrency || 'USD').toUpperCase();
+      expenseCurrency = baseCurrency;
       // Ensure owner is available as payer option even if not listed as a member
       if (membersRes.owner) {
         const ownerUser = membersRes.owner as { id: string; username: string };
@@ -249,9 +258,20 @@
       // Default payer covers full amount
       const idsForPayments = payerOptions.map((u) => u.id);
       paidByUserId = Object.fromEntries(idsForPayments.map((id) => [id, id === payerUserId ? (Number(amount) || 0).toFixed(2) : '0']));
+      paidCurrencyByUserId = Object.fromEntries(idsForPayments.map((id) => [id, expenseCurrency]));
+      // Server balances and transfers (base currency)
+      serverBalances = balancesRes?.balances || null;
+      serverTransfers = balancesRes?.transfers || null;
       
       // Load activity feed
       await loadActivity();
+      // After initial load, fetch server balances explicitly (base currency)
+      try {
+        const b = await api(`/trips/${tripId}/balances`);
+        serverBalances = b?.balances || null;
+        serverTransfers = b?.transfers || null;
+        baseCurrency = (b?.baseCurrency || baseCurrency).toUpperCase();
+      } catch {}
     } catch (e: any) {
       error = e.message;
     }
@@ -303,15 +323,15 @@
         .map(([userId, v]) => ({ userId, amount: Number(v) || 0 }))
         .filter((s) => s.amount > 0);
       let payments = Object.entries(paidByUserId)
-        .map(([userId, v]) => ({ userId, amount: Number(v) || 0 }))
+        .map(([userId, v]) => ({ userId, amount: Number(v) || 0, currency: (paidCurrencyByUserId[userId] || expenseCurrency).toUpperCase() }))
         .filter((p) => p.amount > 0);
       // Safety: if for any reason payments are empty, ensure selected payer covers all
       if (payments.length === 0 && payerUserId && amountNum > 0) {
-        payments = [{ userId: payerUserId, amount: amountNum }];
+        payments = [{ userId: payerUserId, amount: amountNum, currency: expenseCurrency.toUpperCase() }];
       }
       const res = await api('/expenses', {
         method: 'POST',
-        body: JSON.stringify({ tripId, description: description.trim(), amount: amountNum, category: category || undefined, expenseType: expenseType || undefined, incurredAt: incurredAtInput ? new Date(incurredAtInput).toISOString() : undefined, payerUserId, splits, payments })
+        body: JSON.stringify({ tripId, description: description.trim(), amount: amountNum, category: category || undefined, expenseType: expenseType || undefined, incurredAt: incurredAtInput ? new Date(incurredAtInput).toISOString() : undefined, payerUserId, splits, payments, currency: expenseCurrency.toUpperCase() })
       });
       upsertExpense(res.expense as Expense);
       description = ''; amount = ''; category = ''; expenseType = '';
@@ -437,6 +457,7 @@
     } else if (paymentMode === 'custom_percentages') {
       paidByUserId = allocateByPercent(total, paidPctByUserId, ids);
     } // custom_amounts: keep current paidByUserId as-is
+    for (const id of ids) { if (!paidCurrencyByUserId[id]) paidCurrencyByUserId[id] = expenseCurrency; }
   }
 
   function onSplitModeChange(e: Event) {
@@ -512,6 +533,7 @@
 
   // Balance summary (who owes whom)
   function computeBalances() {
+    if (serverBalances) return serverBalances;
     const userIds = balanceUsers.map((u) => u.id);
     const balances: Record<string, number> = Object.fromEntries(userIds.map((id) => [id, 0]));
     for (const e of expenses) {
@@ -534,6 +556,7 @@
   }
 
   function minimizeTransfers(balances: Record<string, number>) {
+    if (serverTransfers) return serverTransfers;
     const creditors: { id: string; amount: number }[] = [];
     const debtors: { id: string; amount: number }[] = [];
     for (const [id, cents] of Object.entries(balances)) {
@@ -700,7 +723,7 @@
     if (!editing) return;
     try {
       const payments = Object.entries(editPaidByUserId)
-        .map(([userId, v]) => ({ userId, amount: Number(v) || 0 }))
+        .map(([userId, v]) => ({ userId, amount: Number(v) || 0, currency: (editing?.currency || baseCurrency).toUpperCase() }))
         .filter((p) => p.amount > 0);
       const splits = Object.entries(editSplitByUserId)
         .filter(([userId]) => editSelectedSplitUserIdMap[userId])
@@ -708,7 +731,7 @@
         .filter((s) => s.amount > 0);
       const res = await api(`/expenses/${editing.id}`, {
         method: 'PUT',
-        body: JSON.stringify({ amount: Number(editAmount) || 0, payments, splits })
+        body: JSON.stringify({ amount: Number(editAmount) || 0, payments, splits, currency: (editing?.currency || baseCurrency).toUpperCase() })
       });
       upsertExpense(res.expense as Expense);
       success = 'Expense updated.';
@@ -764,14 +787,14 @@
               <h2 class="text-2xl md:text-3xl font-extrabold tracking-tight">{tripName || 'Trip details'}</h2>
               <div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
                 <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/20">
-                  You owe <strong class="tabular-nums ml-1">${centsToString(totalOweCents)}</strong>
+                   You owe <strong class="tabular-nums ml-1">{baseCurrency} ${centsToString(totalOweCents)}</strong>
                 </span>
                 <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-500/10 text-green-700 dark:text-green-300 border border-green-500/20">
-                  You're owed <strong class="tabular-nums ml-1">${centsToString(totalOwedCents)}</strong>
+                   You're owed <strong class="tabular-nums ml-1">{baseCurrency} ${centsToString(totalOwedCents)}</strong>
                 </span>
                 <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-500/10 text-gray-700 dark:text-gray-200 border border-gray-500/20">
                   Net
-                  <strong class="tabular-nums ml-1 {netCents>=0 ? 'text-green-600' : 'text-red-600'}">${centsToString(Math.abs(netCents))}</strong>
+                   <strong class="tabular-nums ml-1 {netCents>=0 ? 'text-green-600' : 'text-red-600'}">{baseCurrency} ${centsToString(Math.abs(netCents))}</strong>
                   <span class="opacity-70">{netCents>=0 ? 'in your favor' : 'to settle'}</span>
                 </span>
               </div>
@@ -804,6 +827,7 @@
     {centsToString}
     {me}
     {displayName}
+    currencyLabel={baseCurrency}
   />
 </section>
 
@@ -846,6 +870,15 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
         <input type="datetime-local" class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={incurredAtInput} />
         <input class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" placeholder="Category (optional)" bind:value={category} />
+      </div>
+
+      <div>
+        <label class="text-xs opacity-70 block mb-1" for="expense-currency-select">Expense currency</label>
+        <select id="expense-currency-select" class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={expenseCurrency}>
+          {#each currencies as c}
+            <option value={c}>{c}</option>
+          {/each}
+        </select>
       </div>
 
       <div>
@@ -897,11 +930,23 @@
                 <input type="number" min="0" max="100" step="0.01" class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidPctByUserId[u.id]} on:input={(e) => onPaidPercentInput(u.id, (e.target as HTMLInputElement).value)} />
                 <span class="text-sm opacity-70">%</span>
                 <div class="w-full min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{paidByUserId[u.id]}</div>
+                <select class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidCurrencyByUserId[u.id]}>
+                  {#each currencies as c}
+                    <option value={c}>{c}</option>
+                  {/each}
+                </select>
               </div>
             {:else if paymentMode === 'equal' || paymentMode === 'payer'}
               <div class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{paidByUserId[u.id]}</div>
             {:else}
-              <input type="number" min="0" step="0.01" class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidByUserId[u.id]} on:input={(e) => paidByUserId[u.id] = (e.target as HTMLInputElement).value} />
+              <div class="flex items-center gap-2 flex-1 min-w-0">
+                <input type="number" min="0" step="0.01" class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidByUserId[u.id]} on:input={(e) => paidByUserId[u.id] = (e.target as HTMLInputElement).value} />
+                <select class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidCurrencyByUserId[u.id]}>
+                  {#each currencies as c}
+                    <option value={c}>{c}</option>
+                  {/each}
+                </select>
+              </div>
             {/if}
           </div>
         {/each}

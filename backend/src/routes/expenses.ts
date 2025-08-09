@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../prisma";
 import { AuthenticatedRequest } from "../middleware/auth";
+import { convertCents, normalizeCurrency } from "../utils/fx";
 
 const router = Router();
 
@@ -39,13 +40,14 @@ router.post("/expenses", async (req: AuthenticatedRequest, res) => {
     quantity: z.number().int().positive().optional(),
     unitPrice: z.number().positive().optional(),
     amount: z.number().positive(),
+    currency: z.string().length(3).optional(),
     incurredAt: z.string().datetime().optional(),
     payerUserId: z.string().optional(),
     splits: z
       .array(z.object({ userId: z.string(), amount: z.number().nonnegative() }))
       .optional(),
     payments: z
-      .array(z.object({ userId: z.string(), amount: z.number().nonnegative() }))
+      .array(z.object({ userId: z.string(), amount: z.number().nonnegative(), currency: z.string().length(3).optional() }))
       .optional(),
   });
   const parse = schema.safeParse(req.body);
@@ -59,6 +61,7 @@ router.post("/expenses", async (req: AuthenticatedRequest, res) => {
 
   const amountCents = toCents(data.amount);
   const incurredAt = data.incurredAt ? new Date(data.incurredAt) : new Date();
+  const expenseCurrency = normalizeCurrency(data.currency || "USD");
 
   try {
     const created = await prisma.$transaction(async (tx) => {
@@ -72,6 +75,7 @@ router.post("/expenses", async (req: AuthenticatedRequest, res) => {
           quantity: data.quantity ?? 1,
           unitPriceCents: data.unitPrice != null ? toCents(data.unitPrice) : null,
           amountCents,
+          currency: expenseCurrency,
           incurredAt,
         },
       });
@@ -112,18 +116,24 @@ router.post("/expenses", async (req: AuthenticatedRequest, res) => {
       let paymentsPayload = data.payments;
       if (!paymentsPayload || paymentsPayload.length === 0) {
         const fallbackPayer = data.payerUserId ?? req.user!.id;
-        paymentsPayload = [{ userId: fallbackPayer, amount: data.amount }];
+        paymentsPayload = [{ userId: fallbackPayer, amount: data.amount, currency: expenseCurrency }];
       }
-      const paymentsSum = Math.round(paymentsPayload.reduce((sum, p) => sum + toCents(p.amount), 0));
-      if (paymentsSum !== amountCents) {
-        throw new Error("Payment amounts must sum to total amount");
+      // Validate payments sum to total in the expense currency
+      let convertedSum = 0;
+      for (const p of paymentsPayload) {
+        const fromCur = normalizeCurrency(p.currency || expenseCurrency);
+        const cents = toCents(p.amount);
+        const converted = await convertCents(cents, fromCur, expenseCurrency, incurredAt);
+        convertedSum += converted;
       }
+      if (convertedSum !== amountCents) throw new Error("Payment amounts must sum to total amount (after conversion)");
 
       await (tx as any).expensePayment.createMany({
         data: paymentsPayload.map((p) => ({
           expenseId: expense.id,
           userId: p.userId,
           amountCents: toCents(p.amount),
+          currency: normalizeCurrency(p.currency || expenseCurrency),
         })),
       });
 
@@ -155,8 +165,9 @@ router.put("/expenses/:id", async (req: AuthenticatedRequest, res) => {
     expenseType: z.string().optional(),
     incurredAt: z.string().datetime().optional(),
     amount: z.number().positive().optional(),
+    currency: z.string().length(3).optional(),
     splits: z.array(z.object({ userId: z.string(), amount: z.number().nonnegative() })).optional(),
-    payments: z.array(z.object({ userId: z.string(), amount: z.number().nonnegative() })).optional(),
+    payments: z.array(z.object({ userId: z.string(), amount: z.number().nonnegative(), currency: z.string().length(3).optional() })).optional(),
   });
   const params = paramsSchema.safeParse(req.params);
   const body = bodySchema.safeParse(req.body);
@@ -176,6 +187,7 @@ router.put("/expenses/:id", async (req: AuthenticatedRequest, res) => {
 
   const newAmountCents = data.amount != null ? toCents(data.amount) : existing.amountCents;
   const newIncurredAt = data.incurredAt ? new Date(data.incurredAt) : existing.incurredAt;
+  const newCurrency = normalizeCurrency(data.currency || existing.currency);
 
   try {
     const updated = await prisma.$transaction(async (tx) => {
@@ -188,6 +200,7 @@ router.put("/expenses/:id", async (req: AuthenticatedRequest, res) => {
           expenseType: data.expenseType ?? existing.expenseType ?? undefined,
           incurredAt: newIncurredAt,
           amountCents: newAmountCents,
+          currency: newCurrency,
         },
       });
 
@@ -203,11 +216,18 @@ router.put("/expenses/:id", async (req: AuthenticatedRequest, res) => {
 
       // Payments
       if (data.payments) {
-        const paymentsSum = Math.round(data.payments.reduce((sum, p) => sum + toCents(p.amount), 0));
-        if (paymentsSum !== newAmountCents) throw new Error("Payment amounts must sum to total amount");
+        // Validate after conversion to expense currency
+        let convertedSum = 0;
+        for (const p of data.payments) {
+          const fromCur = normalizeCurrency(p.currency || newCurrency);
+          const cents = toCents(p.amount);
+          const converted = await convertCents(cents, fromCur, newCurrency, newIncurredAt);
+          convertedSum += converted;
+        }
+        if (convertedSum !== newAmountCents) throw new Error("Payment amounts must sum to total amount (after conversion)");
         await (tx as any).expensePayment.deleteMany({ where: { expenseId } });
         await (tx as any).expensePayment.createMany({
-          data: data.payments.map((p) => ({ expenseId, userId: p.userId, amountCents: toCents(p.amount) })),
+          data: data.payments.map((p) => ({ expenseId, userId: p.userId, amountCents: toCents(p.amount), currency: normalizeCurrency(p.currency || newCurrency) })),
         });
       }
 

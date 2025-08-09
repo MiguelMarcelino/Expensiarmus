@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../prisma";
 import { AuthenticatedRequest } from "../middleware/auth";
+import { convertCents, normalizeCurrency } from "../utils/fx";
 
 const router = Router();
 
@@ -46,7 +47,7 @@ router.get("/trips/:tripId/members", async (req: AuthenticatedRequest, res) => {
     }
   }));
   const owner = trip.owner ? { id: trip.owner.id, username: trip.owner.username, email: trip.owner.email } : null;
-  res.json({ members: transformedMembers, owner });
+  res.json({ members: transformedMembers, owner, baseCurrency: trip.baseCurrency });
 });
 
 router.get("/trips/:tripId/activity", async (req: AuthenticatedRequest, res) => {
@@ -95,7 +96,7 @@ router.get("/trips/:tripId/activity", async (req: AuthenticatedRequest, res) => 
         id: `expense_${expense.id}`,
         kind: 'expense_created',
         at: expense.createdAt.toISOString(),
-        text: `${expense.createdBy.username} added "${expense.description}" for $${(expense.amountCents / 100).toFixed(2)}`,
+        text: `${expense.createdBy.username} added "${expense.description}" for ${expense.currency || 'USD'} ${(expense.amountCents / 100).toFixed(2)}`,
       });
     } else {
       activities.push({
@@ -115,12 +116,11 @@ router.get("/trips/:tripId/activity", async (req: AuthenticatedRequest, res) => 
 
 router.post("/trips", async (req: AuthenticatedRequest, res) => {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
-  const schema = z.object({ name: z.string().min(1).max(100) });
+  const schema = z.object({ name: z.string().min(1).max(100), baseCurrency: z.string().length(3).optional() });
   const parse = schema.safeParse(req.body);
   if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
-  const { name } = parse.data;
-
-  const trip = await prisma.trip.create({ data: { name, ownerId: req.user.id } });
+  const { name, baseCurrency } = parse.data;
+  const trip = await prisma.trip.create({ data: { name, ownerId: req.user.id, baseCurrency: baseCurrency ? baseCurrency.toUpperCase() : undefined } });
   res.json({ trip });
 });
 
@@ -164,3 +164,91 @@ router.post("/trips/:tripId/members", async (req: AuthenticatedRequest, res) => 
 });
 
 export default router;
+
+// Additional balances endpoint
+router.get("/trips/:tripId/balances", async (req: AuthenticatedRequest, res) => {
+  const paramsSchema = z.object({ tripId: z.string() });
+  const params = paramsSchema.safeParse(req.params);
+  if (!params.success) return res.status(400).json({ error: params.error.flatten() });
+  const { tripId } = params.data;
+  const userId = req.user!.id;
+
+  const trip = await prisma.trip.findFirst({
+    where: { id: tripId, OR: [{ ownerId: userId }, { members: { some: { userId } } }] },
+    include: { members: true, owner: true },
+  });
+  if (!trip) return res.status(404).json({ error: "Trip not found or access denied" });
+  const baseCurrency = normalizeCurrency(trip.baseCurrency || 'USD');
+
+  const expenses = await prisma.expense.findMany({
+    where: { tripId, deletedAt: null },
+    include: { payments: true, splits: true, createdBy: true },
+    orderBy: { incurredAt: 'asc' },
+  });
+
+  const userIdsSet = new Set<string>();
+  userIdsSet.add(trip.ownerId);
+  for (const m of trip.members) userIdsSet.add(m.userId);
+  for (const e of expenses) {
+    userIdsSet.add(e.createdById);
+    for (const s of e.splits) userIdsSet.add(s.userId);
+    for (const p of e.payments) userIdsSet.add(p.userId);
+  }
+  const userIds = Array.from(userIdsSet.values());
+  const balances: Record<string, number> = Object.fromEntries(userIds.map((id) => [id, 0]));
+
+  for (const e of expenses) {
+    const incurredAt = e.incurredAt;
+    const expenseCur = normalizeCurrency((e as any).currency || 'USD');
+    const totalBase = await convertCents(e.amountCents, expenseCur, baseCurrency, incurredAt);
+
+    // Build split map in base currency
+    const splitMap: Record<string, number> = {};
+    for (const s of e.splits) {
+      const sBase = await convertCents(s.amountCents, expenseCur, baseCurrency, incurredAt);
+      splitMap[s.userId] = (splitMap[s.userId] || 0) + sBase;
+    }
+
+    // Build payment map in base currency
+    const payMap: Record<string, number> = {};
+    if (e.payments && e.payments.length > 0) {
+      for (const p of e.payments) {
+        const pCur = normalizeCurrency((p as any).currency || expenseCur);
+        const pBase = await convertCents(p.amountCents, pCur, baseCurrency, incurredAt);
+        payMap[p.userId] = (payMap[p.userId] || 0) + pBase;
+      }
+    } else {
+      // Fallback: creator covers total
+      payMap[e.createdById] = totalBase;
+    }
+
+    for (const id of userIds) {
+      const owe = splitMap[id] || 0;
+      const paid = payMap[id] || 0;
+      balances[id] = (balances[id] || 0) + paid - owe;
+    }
+  }
+
+  // Minimize transfers
+  const creditors: { id: string; amount: number }[] = [];
+  const debtors: { id: string; amount: number }[] = [];
+  for (const [id, cents] of Object.entries(balances)) {
+    if (cents > 0) creditors.push({ id, amount: cents });
+    else if (cents < 0) debtors.push({ id, amount: -cents });
+  }
+  creditors.sort((a, b) => b.amount - a.amount);
+  debtors.sort((a, b) => b.amount - a.amount);
+  const transfers: { from: string; to: string; amountCents: number }[] = [];
+  let i = 0, j = 0;
+  while (i < debtors.length && j < creditors.length) {
+    const d = debtors[i];
+    const c = creditors[j];
+    const x = Math.min(d.amount, c.amount);
+    if (x > 0) transfers.push({ from: d.id, to: c.id, amountCents: x });
+    d.amount -= x; c.amount -= x;
+    if (d.amount === 0) i++;
+    if (c.amount === 0) j++;
+  }
+
+  res.json({ baseCurrency, balances, transfers });
+});
