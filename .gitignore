@@ -1,0 +1,44 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+backend/.env
+frontend/.env
+
+# Build outputs
+/dist
+/build
+**/dist
+**/build
+.vite/
+**/.vite
+
+# Svelte / Vite
+.svelte-kit
+.svelte-kit/**
+
+# TypeScript
+*.tsbuildinfo
+
+# Prisma / SQLite
+backend/prisma/dev.db
+backend/prisma/dev.db-journal
+
+# Logs
+logs
+*.log
+*.log.*
+
+# IDE
+.vscode/
+.idea/
