@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { api } from '../lib/api';
   import { currentUser } from '../lib/auth';
+  import type { User } from '../lib/auth';
   import { fade, fly } from 'svelte/transition';
 
   export let params: { id: string };
@@ -22,6 +23,9 @@
     splits: { userId: string; amountCents: number }[];
     payments?: { userId: string; amountCents: number }[];
   };
+
+  let me: User | null = null;
+  currentUser.subscribe((u) => (me = u));
 
   let members: Member[] = [];
   let expenses: Expense[] = [];
@@ -50,6 +54,11 @@
   }
 
   $: addDisabled = !tripId || description.trim().length === 0 || Number(amount) <= 0;
+  $: payerOptions = (() => {
+    const list = [...members.map((m) => m.user)];
+    if (me && !list.find((u) => u.id === me!.id)) list.unshift({ id: me.id, username: me.username });
+    return list;
+  })();
 
   async function load() {
     error = null;
@@ -60,7 +69,9 @@
       ]);
       members = membersRes.members;
       expenses = expensesRes.expenses;
-      if (!payerUserId && members.length > 0) payerUserId = members[0].user.id;
+      if (!payerUserId) {
+        payerUserId = me?.id || (members[0]?.user.id ?? '');
+      }
       if (expenses.length > 0 && expenses[0].category) {
         tripName = expenses[0].category;
       }
@@ -72,8 +83,9 @@
       } else {
         splitByUserId = Object.fromEntries(participantIds.map((id) => [id, '0']));
       }
-      // Default payer is payerUserId covering full amount
-      paidByUserId = Object.fromEntries(participantIds.map((id) => [id, id === payerUserId ? (Number(amount) || 0).toFixed(2) : '0']));
+      // Default payer covers full amount
+      const idsForPayments = payerOptions.map((u) => u.id);
+      paidByUserId = Object.fromEntries(idsForPayments.map((id) => [id, id === payerUserId ? (Number(amount) || 0).toFixed(2) : '0']));
     } catch (e: any) {
       error = e.message;
     }
@@ -82,16 +94,18 @@
   function onAmountChange() {
     const total = Number(amount) || 0;
     const ids = members.map((m) => m.user.id);
-    if (ids.length === 0) return;
-    const per = total / ids.length || 0;
-    splitByUserId = Object.fromEntries(ids.map((id) => [id, per.toFixed(2)]));
-    paidByUserId = Object.fromEntries(ids.map((id) => [id, id === payerUserId ? total.toFixed(2) : '0']));
+    if (ids.length > 0) {
+      const per = total / ids.length || 0;
+      splitByUserId = Object.fromEntries(ids.map((id) => [id, per.toFixed(2)]));
+    }
+    const idsForPayments = payerOptions.map((u) => u.id);
+    paidByUserId = Object.fromEntries(idsForPayments.map((id) => [id, id === payerUserId ? total.toFixed(2) : '0']));
   }
 
   function onPayerChange() {
     const total = Number(amount) || 0;
-    const ids = members.map((m) => m.user.id);
-    paidByUserId = Object.fromEntries(ids.map((id) => [id, id === payerUserId ? total.toFixed(2) : '0']));
+    const idsForPayments = payerOptions.map((u) => u.id);
+    paidByUserId = Object.fromEntries(idsForPayments.map((id) => [id, id === payerUserId ? total.toFixed(2) : '0']));
   }
 
   function validTotals(): string | null {
@@ -167,12 +181,11 @@
       for (const s of e.splits) splitMap[s.userId] = s.amountCents;
       const payMap: Record<string, number> = {};
       for (const p of e.payments || []) payMap[p.userId] = p.amountCents;
-      // If payments missing (older data), assume creator paid
       if (Object.keys(payMap).length === 0) payMap[e.createdBy.id] = total;
       for (const id of userIds) {
         const owe = splitMap[id] || 0;
         const paid = payMap[id] || 0;
-        balances[id] += paid - owe; // positive means others owe them
+        balances[id] += paid - owe;
       }
     }
     return balances;
@@ -283,23 +296,22 @@
       <h3 class="font-semibold">Add expense (manual)</h3>
       <input class="w-full border border-gray-300 dark:border-gray-600 rounded p-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 placeholder-gray-500" placeholder="Description" bind:value={description} />
       <input type="number" min="0" step="0.01" class="w-full border border-gray-300 dark:border-gray-600 rounded p-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 placeholder-gray-500" placeholder="Amount" bind:value={amount} on:change={onAmountChange} />
-      <div class="grid grid-cols-2 gap-2">
-        <div>
-          <label class="text-xs opacity-70">Payer</label>
-          <select class="w-full border border-gray-300 dark:border-gray-600 rounded p-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100" bind:value={payerUserId} on:change={onPayerChange}>
-            {#each members as m}
-              <option value={m.user.id}>{m.user.username}</option>
-            {/each}
-          </select>
-        </div>
+
+      <div>
+        <label class="text-xs opacity-70 block mb-1">Payer</label>
+        <select class="w-full border border-gray-300 dark:border-gray-600 rounded p-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100" bind:value={payerUserId} on:change={onPayerChange}>
+          {#each payerOptions as u}
+            <option value={u.id}>{u.username}</option>
+          {/each}
+        </select>
       </div>
 
       <div class="mt-2">
         <div class="text-sm font-semibold mb-1">Who pays how much</div>
-        {#each members as m}
+        {#each payerOptions as u}
           <div class="flex items-center gap-2 py-1">
-            <span class="w-28 text-sm opacity-80">{m.user.username}</span>
-            <input type="number" min="0" step="0.01" class="flex-1 border border-gray-300 dark:border-gray-600 rounded p-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 placeholder-gray-500" bind:value={paidByUserId[m.user.id]} on:input={(e) => paidByUserId[m.user.id] = (e.target as HTMLInputElement).value} />
+            <span class="w-28 text-sm opacity-80">{u.username}</span>
+            <input type="number" min="0" step="0.01" class="flex-1 border border-gray-300 dark:border-gray-600 rounded p-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 placeholder-gray-500" bind:value={paidByUserId[u.id]} on:input={(e) => paidByUserId[u.id] = (e.target as HTMLInputElement).value} />
           </div>
         {/each}
         <div class="text-xs opacity-70 mt-1">Total payments: ${sumStrings(paidByUserId).toFixed(2)}</div>
