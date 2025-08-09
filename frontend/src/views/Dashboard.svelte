@@ -14,7 +14,8 @@
     incurredAt: string;
     createdBy: { id: string; username: string };
     splits: { userId: string; amountCents: number }[];
-    // payments are not included by the API for GET, we assume createdBy paid full amount when missing
+    // payments may be included by the API; when missing, assume creator paid full amount
+    payments?: { userId: string; amountCents: number }[];
   } & { tripId?: string };
 
   let me: User | null = null;
@@ -44,7 +45,14 @@
 
   function myDeltaCents(e: Expense): number {
     const mySplit = e.splits.find((s) => s.userId === me?.id)?.amountCents || 0;
-    const myPaid = e.createdBy.id === (me?.id || '') ? e.amountCents : 0;
+    let myPaid = 0;
+    if (e.payments && e.payments.length > 0) {
+      myPaid = e.payments
+        .filter((p) => p.userId === (me?.id || ''))
+        .reduce((sum, p) => sum + p.amountCents, 0);
+    } else {
+      myPaid = e.createdBy.id === (me?.id || '') ? e.amountCents : 0;
+    }
     return myPaid - mySplit; // >0 you're owed, <0 you owe
   }
 
