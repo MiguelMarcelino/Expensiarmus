@@ -244,6 +244,15 @@
   </div>
 {/if}
 
+<!-- Back to dashboard -->
+<div class="mb-3">
+  <a href="#/dashboard" class="inline-flex items-center gap-2 rounded-full border border-black/5 dark:border-white/10 bg-white/70 dark:bg-gray-800/60 backdrop-blur px-3 py-1.5 shadow-sm hover:shadow transition">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/><line x1="9" y1="12" x2="21" y2="12"/></svg>
+    <span class="text-sm">Back to dashboard</span>
+  </a>
+  
+</div>
+
 <!-- Summary -->
 <section class="mb-4 bg-white dark:bg-gray-800 rounded shadow p-4">
   <h2 class="font-semibold mb-2">Balances</h2>
