@@ -3,6 +3,7 @@
   import { api } from '../lib/api';
   import { currentUser } from '../lib/auth';
   import type { User } from '../lib/auth';
+  import ExpenseIcon from '../lib/ExpenseIcon.svelte';
 
   type Trip = { id: string; name: string; createdAt: string };
   type Expense = {
@@ -189,7 +190,8 @@
         {#key e.id}
           <a href={`#/trip/${e.tripId}`} class="block rounded-xl border border-white/30 dark:border-gray-700/40 bg-white/60 dark:bg-gray-900/50 backdrop-blur shadow-sm hover:shadow-md transition p-4">
             <div class="flex items-start justify-between gap-3">
-              <div>
+              <div class="flex items-start gap-3">
+                <ExpenseIcon description={e.description} category={e.category} expenseType={e.expenseType} />
                 <div class="font-semibold">{e.description}</div>
                 <div class="text-xs opacity-70">{e.expenseType || e.category}</div>
                 <div class="text-xs opacity-60">{e.tripName} · by {e.createdBy.username} · {new Date(e.incurredAt).toLocaleString()}</div>

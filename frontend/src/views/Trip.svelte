@@ -3,6 +3,7 @@
   import { api } from '../lib/api';
   import { currentUser } from '../lib/auth';
   import type { User } from '../lib/auth';
+  import ExpenseIcon from '../lib/ExpenseIcon.svelte';
   import { fade, fly } from 'svelte/transition';
 
   export let params: { id: string };
@@ -43,16 +44,16 @@
   let expenseType = '';
   let incurredAtInput = '';
   let payerUserId: string = '';
-  let splitByUserId: Record<string, string> = {}; // userId -> amount string
-  let paidByUserId: Record<string, string> = {};  // userId -> amount string
+  let splitByUserId: Record<string, string> = {};
+  let paidByUserId: Record<string, string> = {};
 
   // Modes and percentage storage
   type SplitMode = 'equal' | 'custom_amounts' | 'custom_percentages';
   type PaymentMode = 'payer' | 'equal' | 'custom_amounts' | 'custom_percentages';
   let splitMode: SplitMode = 'equal';
   let paymentMode: PaymentMode = 'payer';
-  let splitPctByUserId: Record<string, string> = {}; // userId -> percentage string (0-100)
-  let paidPctByUserId: Record<string, string> = {};  // userId -> percentage string (0-100)
+  let splitPctByUserId: Record<string, string> = {};
+  let paidPctByUserId: Record<string, string> = {};
 
   // AI form
   let aiInput = '';
@@ -835,9 +836,7 @@
             {#each expenses as e}
               <div class="group rounded-xl border border-black/5 dark:border-white/10 bg-white/70 dark:bg-gray-800/60 backdrop-blur p-4 shadow-sm hover:shadow transition flex items-start justify-between">
                 <div class="flex items-start gap-3 min-w-0">
-                  <div class="mt-0.5 shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7H8"/><path d="M20 11H8"/><path d="M14 15H8"/><path d="M4 6v12"/></svg>
-                  </div>
+                  <ExpenseIcon description={e.description} category={e.category} expenseType={e.expenseType} />
                   <div class="min-w-0">
                     <div class="font-medium truncate">{e.description}</div>
                     <div class="mt-1 text-xs opacity-70 flex flex-wrap items-center gap-2">
