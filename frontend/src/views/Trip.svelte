@@ -46,6 +46,7 @@
   let payerUserId: string = '';
   let splitByUserId: Record<string, string> = {}; // userId -> amount string
   let paidByUserId: Record<string, string> = {};  // userId -> amount string
+  let selectedSplitUserIdMap: Record<string, boolean> = {};
 
   // Modes and percentage storage
   type SplitMode = 'equal' | 'custom_amounts' | 'custom_percentages';
@@ -247,14 +248,18 @@
     if (me && !list.find((u) => u.id === me!.id)) list.unshift({ id: me.id, username: me.username });
     return list;
   })();
-  $: splitParticipants = (() => {
-    // Everyone except the selected payer owes the payer by default
+  $: splitCandidates = (() => {
+    // Everyone except the selected payer is eligible to owe
     let users: { id: string; username: string }[] = [];
     if (members.length > 0) users = members.map((m) => m.user);
     else if (me) users = [{ id: me.id, username: me.username }];
-    // Exclude the payer from owing side; if that empties the list, fall back to including the payer
     const filtered = users.filter((u) => u.id !== payerUserId);
     return (filtered.length > 0 ? filtered : (users.length > 0 ? [users[0]] : [])) as { id: string; username: string }[];
+  })();
+
+  $: splitParticipants = (() => {
+    const selected = splitCandidates.filter((u) => selectedSplitUserIdMap[u.id]);
+    return selected.length > 0 ? selected : splitCandidates;
   })();
 
   async function load() {
@@ -279,9 +284,10 @@
       if (expenses.length > 0 && expenses[0].category) {
         tripName = expenses[0].category;
       }
-      // Initialize equal split among participants excluding the payer
+      // Initialize selected split participants (everyone except payer)
       const allUsers = members.length > 0 ? members.map((m) => m.user) : (me ? [{ id: me.id, username: me.username }] : []);
       const participantIds = allUsers.filter((u) => u.id !== payerUserId).map((u) => u.id);
+      selectedSplitUserIdMap = Object.fromEntries(participantIds.map((id) => [id, true]));
       if (participantIds.length > 0 && Number(amount) > 0) {
         const per = Number(amount) / participantIds.length;
         splitByUserId = Object.fromEntries(participantIds.map((id) => [id, per.toFixed(2)]));
@@ -313,12 +319,16 @@
   function onPayerChange() {
     // When payer changes, recalc both payments and splits (others owe the payer)
     recalcPayments();
+    // Reset selection to all split candidates except the payer
+    const allUsers = members.length > 0 ? members.map((m) => m.user) : (me ? [{ id: me.id, username: me.username }] : []);
+    const participantIds = allUsers.filter((u) => u.id !== payerUserId).map((u) => u.id);
+    selectedSplitUserIdMap = Object.fromEntries(participantIds.map((id) => [id, true]));
     recalcSplits();
   }
 
   function validTotals(): string | null {
     const total = Number(amount) || 0;
-    const splitSum = sumStrings(splitByUserId);
+    const splitSum = sumStrings(Object.fromEntries(Object.entries(splitByUserId).filter(([id]) => selectedSplitUserIdMap[id])));
     const paidSum = sumStrings(paidByUserId);
     if (Math.round(splitSum * 100) !== Math.round(total * 100)) return `Splits must sum to ${total.toFixed(2)}`;
     if (Math.round(paidSum * 100) !== Math.round(total * 100)) return `Payments must sum to ${total.toFixed(2)}`;
@@ -337,6 +347,7 @@
     if (totalsError) { error = totalsError; return; }
     try {
       const splits = Object.entries(splitByUserId)
+        .filter(([userId]) => selectedSplitUserIdMap[userId])
         .map(([userId, v]) => ({ userId, amount: Number(v) || 0 }))
         .filter((s) => s.amount > 0);
       let payments = Object.entries(paidByUserId)
@@ -362,6 +373,30 @@
       error = e.message;
     }
   }
+
+  // ----- Delete expense -----
+  // Delete confirmation banner state
+  let confirmDeleteId: string | null = null;
+  let confirmDeleteText: string = '';
+  function requestDelete(expenseId: string, label: string) {
+    confirmDeleteId = expenseId;
+    confirmDeleteText = `Delete "${label}"? This cannot be undone.`;
+  }
+  async function performDelete() {
+    if (!confirmDeleteId) return;
+    const id = confirmDeleteId;
+    confirmDeleteId = null;
+    try {
+      await api(`/expenses/${id}`, { method: 'DELETE' });
+      expenses = expenses.filter((e) => e.id !== id);
+      success = 'Expense deleted.';
+      setTimeout(() => { success = null; }, 2000);
+      await loadActivity();
+    } catch (e: any) {
+      error = e.message;
+    }
+  }
+  function cancelDelete() { confirmDeleteId = null; }
 
   // ----- Allocation helpers (amounts/percentages) -----
   function initializeAllocations() {
@@ -419,6 +454,22 @@
     } else if (splitMode === 'custom_percentages') {
       splitByUserId = allocateByPercent(total, splitPctByUserId, ids);
     } // custom_amounts: keep current splitByUserId as-is
+    // Force deselected users to 0
+    for (const u of payerOptions) {
+      if (!selectedSplitUserIdMap[u.id]) {
+        splitByUserId[u.id] = '0';
+        splitPctByUserId[u.id] = '0';
+      }
+    }
+  }
+
+  function onToggleSplitUser(userId: string) {
+    selectedSplitUserIdMap[userId] = !selectedSplitUserIdMap[userId];
+    if (!selectedSplitUserIdMap[userId]) {
+      splitByUserId[userId] = '0';
+      splitPctByUserId[userId] = '0';
+    }
+    recalcSplits();
   }
 
   function recalcPayments() {
@@ -593,11 +644,17 @@
   let editPaidByUserId: Record<string, string> = {};
   let editPaidPctByUserId: Record<string, string> = {};
   let editPayerUserId: string = '';
+  let editAmount: string = '';
+  let editSplitMode: SplitMode = 'equal';
+  let editSplitByUserId: Record<string, string> = {};
+  let editSplitPctByUserId: Record<string, string> = {};
+  let editSelectedSplitUserIdMap: Record<string, boolean> = {};
 
   function openEditor(e: Expense) {
     editing = e;
     showEditor = true;
     const total = e.amountCents / 100;
+    editAmount = total.toFixed(2);
     const ids = balanceUsers.map((u) => u.id);
     // Payments: prefer explicit payments; else creator covers all
     const payMap: Record<string, string> = {};
@@ -623,6 +680,28 @@
     editPaidPctByUserId = payPct;
     // Normalize amounts to total
     recalcEditPayments();
+
+    // Initialize split editing using current splits
+    const splitMap: Record<string, string> = {};
+    const splitIds = balanceUsers.map((u) => u.id);
+    for (const id of splitIds) splitMap[id] = '0';
+    for (const s of e.splits) splitMap[s.userId] = (s.amountCents / 100).toFixed(2);
+    editSplitByUserId = splitMap;
+    editSelectedSplitUserIdMap = Object.fromEntries(splitIds.map((id) => [id, Number(splitMap[id]) > 0]));
+    // Infer split mode
+    const selectedIds = splitIds.filter((id) => editSelectedSplitUserIdMap[id]);
+    const values = selectedIds.map((id) => Number(splitMap[id]));
+    const allEq = values.length > 1 && values.every((v) => Math.abs(v - values[0]) < 0.005);
+    editSplitMode = allEq ? 'equal' : 'custom_amounts';
+    // Seed split percentages
+    const totalSplit = total;
+    const splitPct: Record<string, string> = {};
+    for (const id of splitIds) {
+      const v = Number(splitMap[id] || '0');
+      splitPct[id] = totalSplit > 0 ? ((v * 100) / totalSplit).toFixed(2) : '0';
+    }
+    editSplitPctByUserId = splitPct;
+    recalcEditSplits();
   }
 
   function closeEditor() {
@@ -632,7 +711,7 @@
 
   function recalcEditPayments() {
     if (!editing) return;
-    const total = editing.amountCents / 100;
+    const total = Number(editAmount) || 0;
     const ids = balanceUsers.map((u) => u.id);
     if (editPaymentMode === 'payer') {
       editPaidByUserId = Object.fromEntries(ids.map((id) => [id, id === editPayerUserId ? total.toFixed(2) : '0']));
@@ -646,6 +725,24 @@
     }
   }
 
+  function recalcEditSplits() {
+    if (!editing) return;
+    const total = Number(editAmount) || 0;
+    const ids = balanceUsers.map((u) => u.id).filter((id) => editSelectedSplitUserIdMap[id]);
+    if (editSplitMode === 'equal') {
+      const equalPct = ids.length > 0 ? (100 / ids.length) : 0;
+      editSplitPctByUserId = Object.fromEntries(ids.map((id) => [id, equalPct.toFixed(2)]));
+      editSplitByUserId = allocateByPercent(total, editSplitPctByUserId, ids);
+    } else if (editSplitMode === 'custom_percentages') {
+      editSplitByUserId = allocateByPercent(total, editSplitPctByUserId, ids);
+    }
+  }
+
+  function onEditAmountChange() {
+    recalcEditPayments();
+    recalcEditSplits();
+  }
+
   function editOnPaymentModeChange(e: Event) {
     editPaymentMode = (e.target as HTMLSelectElement).value as PaymentMode;
     recalcEditPayments();
@@ -653,9 +750,11 @@
 
   function editorTotalsError(): string | null {
     if (!editing) return 'No expense';
-    const total = editing.amountCents / 100;
+    const total = Number(editAmount) || 0;
     const paidSum = sumStrings(editPaidByUserId);
     if (Math.round(paidSum * 100) !== Math.round(total * 100)) return `Payments must sum to ${total.toFixed(2)}`;
+    const splitSum = sumStrings(Object.fromEntries(Object.entries(editSplitByUserId).filter(([id]) => editSelectedSplitUserIdMap[id])));
+    if (Math.round(splitSum * 100) !== Math.round(total * 100)) return `Splits must sum to ${total.toFixed(2)}`;
     return null;
   }
 
@@ -668,9 +767,13 @@
       const payments = Object.entries(editPaidByUserId)
         .map(([userId, v]) => ({ userId, amount: Number(v) || 0 }))
         .filter((p) => p.amount > 0);
+      const splits = Object.entries(editSplitByUserId)
+        .filter(([userId]) => editSelectedSplitUserIdMap[userId])
+        .map(([userId, v]) => ({ userId, amount: Number(v) || 0 }))
+        .filter((s) => s.amount > 0);
       const res = await api(`/expenses/${editing.id}`, {
         method: 'PUT',
-        body: JSON.stringify({ payments })
+        body: JSON.stringify({ amount: Number(editAmount) || 0, payments, splits })
       });
       upsertExpense(res.expense as Expense);
       success = 'Expense updated.';
@@ -834,7 +937,10 @@
                 <div class="text-right min-w-[160px]">
                   <div class="font-semibold tabular-nums">${centsToString(e.amountCents)}</div>
                   <div class="mt-2">
-                    <button class="px-2 py-1 rounded-md text-xs border border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700/40" on:click={() => openEditor(e)}>Edit</button>
+                    <div class="inline-flex items-center gap-2">
+                      <button class="px-2 py-1 rounded-md text-xs border border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700/40" on:click={() => openEditor(e)}>Edit</button>
+                      <button class="px-2 py-1 rounded-md text-xs border border-red-200 dark:border-red-700/50 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30" on:click={() => requestDelete(e.id, e.description)}>Delete</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -899,6 +1005,27 @@
       </div>
 
       <div class="mt-1">
+        <div class="mb-2">
+          <div class="text-sm font-semibold mb-1">Split equally among</div>
+          <div class="flex flex-wrap gap-2">
+            {#each splitCandidates as u}
+              {#key selectedSplitUserIdMap[u.id]}
+                <button type="button"
+                  aria-pressed={!!selectedSplitUserIdMap[u.id]}
+                  class={`inline-flex items-center gap-1 text-sm rounded-full px-3 py-1.5 transition border
+                    ${selectedSplitUserIdMap[u.id]
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow'
+                      : 'bg-white/80 dark:bg-gray-800/60 text-gray-800 dark:text-gray-200 border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700/40'}`}
+                  on:click={() => onToggleSplitUser(u.id)}>
+                  {#if selectedSplitUserIdMap[u.id]}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+                  {/if}
+                  <span>{u.username}</span>
+                </button>
+              {/key}
+            {/each}
+          </div>
+        </div>
         <div class="flex items-center justify-between mb-1">
           <div class="text-sm font-semibold">Who pays how much</div>
           <select class="text-xs p-1 rounded-md bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10" bind:value={paymentMode} on:change={onPaymentModeChange}>
@@ -988,6 +1115,10 @@
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
         <div>
+          <div class="text-xs opacity-70 mb-1">Amount</div>
+          <input type="number" min="0" step="0.01" class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={editAmount} on:change={onEditAmountChange} />
+        </div>
+        <div>
           <div class="text-xs opacity-70 mb-1">Who paid how much</div>
           <select class="text-xs p-1 rounded-md bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10 mb-2" bind:value={editPaymentMode} on:change={editOnPaymentModeChange}>
             <option value="payer">Payer covers all</option>
@@ -1015,11 +1146,75 @@
           </div>
           <div class="text-xs opacity-70 mt-1">Total payments: ${sumStrings(editPaidByUserId).toFixed(2)}</div>
         </div>
-        
+        <div>
+          <div class="text-xs opacity-70 mb-1">Who owes how much</div>
+          <select class="text-xs p-1 rounded-md bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10 mb-2" bind:value={editSplitMode} on:change={() => recalcEditSplits()}>
+            <option value="equal">Split equally</option>
+            <option value="custom_percentages">Custom percentages</option>
+            <option value="custom_amounts">Custom amounts</option>
+          </select>
+          <div class="mb-2">
+            <div class="text-xs opacity-70 mb-1">Participants</div>
+            <div class="flex flex-wrap gap-2">
+              {#each balanceUsers as u}
+                {#key editSelectedSplitUserIdMap[u.id]}
+                  <button type="button"
+                    aria-pressed={!!editSelectedSplitUserIdMap[u.id]}
+                    class={`inline-flex items-center gap-1 text-xs rounded-full px-3 py-1.5 transition border
+                      ${editSelectedSplitUserIdMap[u.id]
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow'
+                        : 'bg-white/80 dark:bg-gray-800/60 text-gray-800 dark:text-gray-200 border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700/40'}`}
+                    on:click={() => { editSelectedSplitUserIdMap[u.id] = !editSelectedSplitUserIdMap[u.id]; recalcEditSplits(); }}>
+                    {#if editSelectedSplitUserIdMap[u.id]}
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+                    {/if}
+                    <span>{u.username}</span>
+                  </button>
+                {/key}
+              {/each}
+            </div>
+          </div>
+          <div class="space-y-1.5">
+            {#each balanceUsers as u}
+              {#if editSelectedSplitUserIdMap[u.id]}
+                <div class="flex items-center gap-2 py-0.5 min-w-0">
+                  <span class="w-28 text-sm opacity-80">{u.username}</span>
+                  {#if editSplitMode === 'custom_percentages'}
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                      <input type="number" min="0" max="100" step="0.01" class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={editSplitPctByUserId[u.id]} on:input={(e) => { editSplitPctByUserId[u.id] = clampPercent((e.target as HTMLInputElement).value); recalcEditSplits(); }} />
+                      <span class="text-sm opacity-70">%</span>
+                      <div class="w-full min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{editSplitByUserId[u.id] || '0.00'}</div>
+                    </div>
+                  {:else if editSplitMode === 'equal'}
+                    <div class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{editSplitByUserId[u.id] || '0.00'}</div>
+                  {:else}
+                    <input type="number" min="0" step="0.01" class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={editSplitByUserId[u.id]} />
+                  {/if}
+                </div>
+              {/if}
+            {/each}
+          </div>
+          <div class="text-xs opacity-70 mt-1">Total splits: ${sumStrings(Object.fromEntries(Object.entries(editSplitByUserId).filter(([id]) => editSelectedSplitUserIdMap[id]))).toFixed(2)}</div>
+        </div>
       </div>
       <div class="flex items-center justify-end gap-2">
         <button class="px-3 py-2 rounded-md border border-black/5 dark:border-white/10" on:click={closeEditor}>Cancel</button>
         <button class="px-3 py-2 rounded-md bg-indigo-600 text-white" on:click={saveExpenseEdits}>Save</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if confirmDeleteId}
+  <div class="fixed bottom-4 left-0 right-0 z-30 px-4">
+    <div class="max-w-2xl mx-auto rounded-2xl border border-red-500/30 bg-red-50 dark:bg-red-900/30 text-red-800 dark:text-red-100 shadow backdrop-blur p-4 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>
+        <span class="text-sm">{confirmDeleteText}</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button class="px-3 py-1.5 rounded-md text-sm border border-black/5 dark:border-white/10" on:click={cancelDelete}>Cancel</button>
+        <button class="px-3 py-1.5 rounded-md text-sm bg-red-600 text-white" on:click={performDelete}>Delete</button>
       </div>
     </div>
   </div>
