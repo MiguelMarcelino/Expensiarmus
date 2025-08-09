@@ -18,6 +18,7 @@
     <a href="#/" class="font-semibold">ExpensiArmus</a>
     <div class="flex items-center gap-3">
       {#if user}
+        <a href="#/dashboard" class="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-700">Dashboard</a>
         <span class="text-sm opacity-80">{user.username}</span>
         <button class="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-700" on:click={logout}>Logout</button>
       {:else}
