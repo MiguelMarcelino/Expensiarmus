@@ -10,7 +10,7 @@
   let tripId: string = '';
   $: tripId = params?.id || '';
 
-  type Member = { id: string; joinedAt?: string; user: { id: string; username: string } };
+  type Member = { user: { id: string; username: string; joinedAt?: string } };
   type Expense = {
     id: string;
     description: string;
@@ -44,8 +44,8 @@
   let expenseType = '';
   let incurredAtInput = '';
   let payerUserId: string = '';
-  let splitByUserId: Record<string, string> = {};
-  let paidByUserId: Record<string, string> = {};
+  let splitByUserId: Record<string, string> = {}; // userId -> amount string
+  let paidByUserId: Record<string, string> = {};  // userId -> amount string
 
   // Modes and percentage storage
   type SplitMode = 'equal' | 'custom_amounts' | 'custom_percentages';
@@ -92,9 +92,15 @@
   }
 
   function centsToString(c: number) { return (c / 100).toFixed(2); }
+  function sumStrings(obj: Record<string, string>): number {
+    return Object.values(obj).reduce((s, v) => s + (Number(v) || 0), 0);
+  }
+  function sumPercents(obj: Record<string, string>): number {
+    return Object.values(obj).reduce((s, v) => s + (Number(v) || 0), 0);
+  }
   function nowLocalDatetime(): string {
     const d = new Date();
-    const pad = (n: number) => n.toString().padStart(2, '0');
+    const pad = (n: number) => String(n).padStart(2, '0');
     const yyyy = d.getFullYear();
     const mm = pad(d.getMonth() + 1);
     const dd = pad(d.getDate());
@@ -102,11 +108,20 @@
     const mi = pad(d.getMinutes());
     return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
   }
-  function sumStrings(obj: Record<string, string>): number {
-    return Object.values(obj).reduce((s, v) => s + (Number(v) || 0), 0);
+  function uniqueById(list: Expense[]): Expense[] {
+    const map = new Map<string, Expense>();
+    for (const e of list) map.set(e.id, e);
+    // Keep order: most recent first by incurredAt
+    return Array.from(map.values()).sort((a, b) => +new Date(b.incurredAt) - +new Date(a.incurredAt));
   }
-  function sumPercents(obj: Record<string, string>): number {
-    return Object.values(obj).reduce((s, v) => s + (Number(v) || 0), 0);
+  function upsertExpense(e: Expense) {
+    const idx = expenses.findIndex((x) => x.id === e.id);
+    if (idx >= 0) {
+      expenses[idx] = e;
+      expenses = uniqueById([...expenses]);
+    } else {
+      expenses = uniqueById([e, ...expenses]);
+    }
   }
 
   function myDeltaCents(e: Expense): number {
@@ -189,41 +204,19 @@
     text: string;
   };
   let activeTab: 'expenses' | 'activity' = 'expenses';
-  let localActivity: ActivityEvent[] = [];
   let activityEvents: ActivityEvent[] = [];
-  $: activityEvents = (() => {
-    const items: ActivityEvent[] = [];
-    for (const m of members) {
-      if (m.joinedAt) {
-        items.push({
-          id: `member_${m.id || m.user.id}`,
-          kind: 'member_joined',
-          at: m.joinedAt,
-          text: `${m.user.username} joined the trip`,
-        });
-      }
+  
+  async function loadActivity() {
+    try {
+      const activityRes = await api(`/trips/${tripId}/activity`);
+      activityEvents = activityRes.activities || [];
+    } catch (e: any) {
+      console.error('Failed to load activity:', e);
+      activityEvents = [];
     }
-    for (const e of expenses) {
-      const when = e.createdAt || e.incurredAt;
-      items.push({
-        id: `expense_${e.id}`,
-        kind: 'expense_created',
-        at: when,
-        text: `${e.createdBy.username} added "${e.description}" for $${centsToString(e.amountCents)}`,
-      });
-    }
-    // Include local (non-persisted) edits
-    for (const ev of localActivity) items.push(ev);
-    return items.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
-  })();
+  }
 
-  $: addDisabled = (
-    !tripId ||
-    description.trim().length === 0 ||
-    Number(amount) <= 0 ||
-    // split percentages validation removed since split UI is hidden
-    (paymentMode === 'custom_percentages' && sumPercents(paidPctByUserId) < 99.999)
-  );
+  $: addDisabled = !tripId || description.trim().length === 0 || Number(amount) <= 0;
   $: payerOptions = (() => {
     const list = [...members.map((m) => m.user)];
     if (me && !list.find((u) => u.id === me!.id)) list.unshift({ id: me.id, username: me.username });
@@ -238,50 +231,57 @@
   async function load() {
     error = null;
     try {
-      const [membersRes, expensesRes, tripsRes] = await Promise.all([
+      const [membersRes, expensesRes] = await Promise.all([
         api(`/trips/${tripId}/members`),
         api(`/trips/${tripId}/expenses`),
-        api(`/trips`),
       ]);
       members = membersRes.members;
-      expenses = expensesRes.expenses;
-      // derive trip name from trips list
-      if (tripsRes?.trips) {
-        const t = (tripsRes.trips as { id: string; name: string }[]).find((x) => x.id === tripId);
-        if (t) tripName = t.name;
-      }
+      expenses = uniqueById(expensesRes.expenses);
       if (!payerUserId) {
         payerUserId = me?.id || (members[0]?.user.id ?? '');
       }
-      if (!incurredAtInput) incurredAtInput = nowLocalDatetime();
-      // Initialize equal split among splitParticipants and default payment by payer
-      initializeAllocations();
+      if (expenses.length > 0 && expenses[0].category) {
+        tripName = expenses[0].category;
+      }
+      // Initialize equal split among splitParticipants
+      const participantIds = splitParticipants.map((u) => u.id);
+      if (participantIds.length > 0 && Number(amount) > 0) {
+        const per = Number(amount) / participantIds.length;
+        splitByUserId = Object.fromEntries(participantIds.map((id) => [id, per.toFixed(2)]));
+      } else {
+        splitByUserId = Object.fromEntries(participantIds.map((id) => [id, '0']));
+      }
+      // Default payer covers full amount
+      const idsForPayments = payerOptions.map((u) => u.id);
+      paidByUserId = Object.fromEntries(idsForPayments.map((id) => [id, id === payerUserId ? (Number(amount) || 0).toFixed(2) : '0']));
+      
+      // Load activity feed
+      await loadActivity();
     } catch (e: any) {
       error = e.message;
     }
   }
 
   function onAmountChange() {
-    recalcSplits();
+    const total = Number(amount) || 0;
+    const ids = splitParticipants.map((u) => u.id);
+    if (ids.length > 0) {
+      const per = total / ids.length || 0;
+      splitByUserId = Object.fromEntries(ids.map((id) => [id, per.toFixed(2)]));
+    }
+    // Respect current payment mode when amount changes
     recalcPayments();
   }
 
   function onPayerChange() {
-    if (paymentMode === 'payer') {
-      const total = Number(amount) || 0;
-      const idsForPayments = payerOptions.map((u) => u.id);
-      paidByUserId = Object.fromEntries(
-        idsForPayments.map((id) => [id, id === payerUserId ? total.toFixed(2) : '0'])
-      );
-    }
+    // Respect current payment mode when payer changes
+    recalcPayments();
   }
 
   function validTotals(): string | null {
     const total = Number(amount) || 0;
     const splitSum = sumStrings(splitByUserId);
     const paidSum = sumStrings(paidByUserId);
-    // split percentages validation removed since split UI is hidden
-    if (paymentMode === 'custom_percentages' && sumPercents(paidPctByUserId) < 99.999) return `Payment percentages must sum to 100%`;
     if (Math.round(splitSum * 100) !== Math.round(total * 100)) return `Splits must sum to ${total.toFixed(2)}`;
     if (Math.round(paidSum * 100) !== Math.round(total * 100)) return `Payments must sum to ${total.toFixed(2)}`;
     return null;
@@ -295,30 +295,24 @@
     const totalsError = validTotals();
     if (totalsError) { error = totalsError; return; }
     try {
+      const splits = Object.entries(splitByUserId)
+        .map(([userId, v]) => ({ userId, amount: Number(v) || 0 }))
+        .filter((s) => s.amount > 0);
       const payments = Object.entries(paidByUserId)
         .map(([userId, v]) => ({ userId, amount: Number(v) || 0 }))
         .filter((p) => p.amount > 0);
-      const incurredAtIso = incurredAtInput ? new Date(incurredAtInput).toISOString() : undefined;
       const res = await api('/expenses', {
         method: 'POST',
-        body: JSON.stringify({ tripId, description: description.trim(), amount: amountNum, category: category || undefined, expenseType: expenseType || undefined, incurredAt: incurredAtIso, payments })
+        body: JSON.stringify({ tripId, description: description.trim(), amount: amountNum, category: category || undefined, expenseType: expenseType || undefined, incurredAt: incurredAtInput ? new Date(incurredAtInput).toISOString() : undefined, splits, payments })
       });
-      expenses = [res.expense as Expense, ...expenses];
-      // Track local create activity
-      const created = res.expense as Expense;
-      localActivity = [
-        {
-          id: `create_${created.id}`,
-          kind: 'expense_created',
-          at: created.createdAt || created.incurredAt,
-          text: `${me?.username || 'You'} added "${created.description}" for $${centsToString(created.amountCents)}`,
-        },
-        ...localActivity,
-      ];
+      upsertExpense(res.expense as Expense);
       description = ''; amount = ''; category = ''; expenseType = '';
-      incurredAtInput = nowLocalDatetime();
+      incurredAtInput = new Date().toISOString().slice(0, 16);
       success = 'Expense added successfully.';
       setTimeout(() => { success = null; }, 3000);
+      
+      // Refresh activity to show the new expense event
+      await loadActivity();
     } catch (e: any) {
       error = e.message;
     }
@@ -456,7 +450,7 @@
     try {
       const res = await api('/ai/parse', { method: 'POST', body: JSON.stringify({ input: aiInput }) });
       if (res.expense?.tripId === tripId) {
-        expenses = [res.expense as Expense, ...expenses];
+        upsertExpense(res.expense as Expense);
         success = 'Expense added from AI.';
         setTimeout(() => { success = null; }, 3000);
       }
@@ -472,24 +466,14 @@
       const res = await api(`/trips/${tripId}/members`, { method: 'POST', body: JSON.stringify({ username: memberUsername }) });
       if (res?.members) {
         members = res.members as Member[];
-        // Try to find the newly added member to record join activity (backend returns joinedAt)
-        const added = (res.members as any[]).find((m) => m.user?.username === memberUsername);
-        if (added?.joinedAt) {
-          localActivity = [
-            {
-              id: `member_${added.id || added.user?.id}`,
-              kind: 'member_joined',
-              at: added.joinedAt,
-              text: `${added.user?.username || memberUsername} joined the trip`,
-            },
-            ...localActivity,
-          ];
-        }
       }
       memberUsername = '';
       userSuggestions = [];
       success = 'Member added.';
       setTimeout(() => { success = null; }, 3000);
+      
+      // Refresh activity to show the new member join event
+      await loadActivity();
     } catch (e: any) {
       error = e.message;
     }
@@ -684,21 +668,13 @@
         method: 'PUT',
         body: JSON.stringify({ splits, payments })
       });
-      const updated = res.expense as Expense;
-      expenses = expenses.map((x) => (x.id === updated.id ? updated : x));
-      // Track local edit activity
-      localActivity = [
-        {
-          id: `edit_${updated.id}_${Date.now()}`,
-          kind: 'expense_edited',
-          at: new Date().toISOString(),
-          text: `Edited "${updated.description}"`,
-        },
-        ...localActivity,
-      ];
+      upsertExpense(res.expense as Expense);
       success = 'Expense updated.';
       setTimeout(() => { success = null; }, 2500);
       closeEditor();
+      
+      // Refresh activity to show the updated expense
+      await loadActivity();
     } catch (e: any) {
       error = e.message;
     }
@@ -833,7 +809,7 @@
           <div class="text-sm opacity-70">No expenses yet.</div>
         {:else}
           <div class="space-y-3">
-            {#each expenses as e}
+            {#each expenses as e (e.id)}
               <div class="group rounded-xl border border-black/5 dark:border-white/10 bg-white/70 dark:bg-gray-800/60 backdrop-blur p-4 shadow-sm hover:shadow transition flex items-start justify-between">
                 <div class="flex items-start gap-3 min-w-0">
                   <ExpenseIcon description={e.description} category={e.category} expenseType={e.expenseType} />

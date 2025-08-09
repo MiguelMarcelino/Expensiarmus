@@ -37,7 +37,69 @@ router.get("/trips/:tripId/members", async (req: AuthenticatedRequest, res) => {
     include: { user: { select: { id: true, username: true, email: true } } },
     orderBy: { user: { username: "asc" } },
   });
-  res.json({ members });
+  // Transform to include joinedAt at the user level for frontend compatibility
+  const transformedMembers = members.map(member => ({
+    user: {
+      ...member.user,
+      joinedAt: member.joinedAt
+    }
+  }));
+  res.json({ members: transformedMembers });
+});
+
+router.get("/trips/:tripId/activity", async (req: AuthenticatedRequest, res) => {
+  const paramsSchema = z.object({ tripId: z.string() });
+  const params = paramsSchema.safeParse(req.params);
+  if (!params.success) return res.status(400).json({ error: params.error.flatten() });
+  const { tripId } = params.data;
+  const userId = req.user!.id;
+
+  const trip = await prisma.trip.findFirst({
+    where: { id: tripId, OR: [{ ownerId: userId }, { members: { some: { userId } } }] },
+  });
+  if (!trip) return res.status(404).json({ error: "Trip not found or access denied" });
+
+  // Get members with joinedAt
+  const members = await prisma.tripMember.findMany({
+    where: { tripId },
+    include: { user: { select: { id: true, username: true } } },
+    orderBy: { joinedAt: "asc" },
+  });
+
+  // Get expenses
+  const expenses = await prisma.expense.findMany({
+    where: { tripId },
+    include: { createdBy: { select: { id: true, username: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+
+  // Create activity events
+  const activities = [];
+
+  // Add member join events
+  for (const member of members) {
+    activities.push({
+      id: `member_${member.user.id}`,
+      kind: 'member_joined',
+      at: member.joinedAt.toISOString(),
+      text: `${member.user.username} joined the trip`,
+    });
+  }
+
+  // Add expense events
+  for (const expense of expenses) {
+    activities.push({
+      id: `expense_${expense.id}`,
+      kind: 'expense_created',
+      at: expense.createdAt.toISOString(),
+      text: `${expense.createdBy.username} added "${expense.description}" for $${(expense.amountCents / 100).toFixed(2)}`,
+    });
+  }
+
+  // Sort by timestamp (oldest first for chronological order)
+  activities.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+
+  res.json({ activities });
 });
 
 router.post("/trips", async (req: AuthenticatedRequest, res) => {
@@ -80,7 +142,14 @@ router.post("/trips/:tripId/members", async (req: AuthenticatedRequest, res) => 
     include: { user: { select: { id: true, username: true, email: true } } },
   });
 
-  res.json({ members });
+  // Transform to include joinedAt at the user level for frontend compatibility
+  const transformedMembers = members.map(member => ({
+    user: {
+      ...member.user,
+      joinedAt: member.joinedAt
+    }
+  }));
+  res.json({ members: transformedMembers });
 });
 
 export default router;
