@@ -1,6 +1,6 @@
 <script lang="ts">
   import ExpenseIcon from './ExpenseIcon.svelte';
-  import type { Expense } from './types';
+  import type { Expense } from '../types';
   import { createEventDispatcher } from 'svelte';
 
   export let expense: Expense;
@@ -44,5 +44,6 @@
     </div>
   </div>
 </div>
+
 
 

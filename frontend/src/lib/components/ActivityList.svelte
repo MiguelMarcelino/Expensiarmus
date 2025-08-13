@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ActivityEvent } from './types';
+  import type { ActivityEvent } from '../types';
 
   export let activityEvents: ActivityEvent[] = [];
 </script>
@@ -35,5 +35,6 @@
     {/each}
   </div>
 {/if}
+
 
 

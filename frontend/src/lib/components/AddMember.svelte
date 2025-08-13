@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { api } from './api';
+  import { api } from '../api';
   import { createEventDispatcher } from 'svelte';
 
   export let tripId: string;
@@ -85,5 +85,6 @@
     {/if}
   </div>
 </div>
+
 
 

@@ -3,7 +3,7 @@
   import { api } from '../lib/api';
   import { currentUser } from '../lib/auth';
   import type { User, Expense } from '../lib/types';
-  import ExpenseIcon from '../lib/ExpenseIcon.svelte';
+  import ExpenseIcon from '../lib/components/ExpenseIcon.svelte';
   import { centsToString, computeMyDeltaCents } from '../lib/money';
 
   type Trip = { id: string; name: string; createdAt: string };

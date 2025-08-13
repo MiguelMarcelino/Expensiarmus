@@ -3,10 +3,10 @@
   import { api } from '../lib/api';
   import { currentUser } from '../lib/auth';
   import { fade, fly } from 'svelte/transition';
-  import ExpenseItem from '../lib/ExpenseItem.svelte';
-  import BalancesCard from '../lib/BalancesCard.svelte';
-  import ActivityList from '../lib/ActivityList.svelte';
-  import AddMember from '../lib/AddMember.svelte';
+  import ExpenseItem from '../lib/components/ExpenseItem.svelte';
+  import BalancesCard from '../lib/components/BalancesCard.svelte';
+  import ActivityList from '../lib/components/ActivityList.svelte';
+  import AddMember from '../lib/components/AddMember.svelte';
   import type { Member, Expense, ActivityEvent, SplitMode, PaymentMode, User } from '../lib/types';
   import { centsToString } from '../lib/money';
 
@@ -44,8 +44,8 @@
   let paidCurrencyByUserId: Record<string, string> = {}; // userId -> currency code
   let selectedSplitUserIdMap: Record<string, boolean> = {};
   let expenseCurrency: string = 'EUR';
-  import { currencies } from '../lib/currencies';
-  import { categories as predefinedCategories } from '../lib/categories';
+  import { currencies } from '../lib/constants/currencies';
+  import { categories as predefinedCategories } from '../lib/constants/categories';
   let incurredAtEl: HTMLInputElement | null = null;
 
   // Visualization helpers for compact allocation preview
