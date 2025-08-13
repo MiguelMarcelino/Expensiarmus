@@ -108,15 +108,10 @@
               <h2 class="text-2xl md:text-3xl font-extrabold tracking-tight">Your balances</h2>
               <div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
                 <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/20">
-                  You owe <strong class="tabular-nums ml-1">${centsToString(totalOweCents)}</strong>
+                  You're owed <strong class="tabular-nums ml-1">${centsToString(totalOweCents)}</strong>
                 </span>
                 <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-500/10 text-green-700 dark:text-green-300 border border-green-500/20">
-                  You're owed <strong class="tabular-nums ml-1">${centsToString(totalOwedCents)}</strong>
-                </span>
-                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-500/10 text-gray-700 dark:text-gray-200 border border-gray-500/20">
-                  Net
-                  <strong class="tabular-nums ml-1 {netCents>=0 ? 'text-green-600' : 'text-red-600'}">${centsToString(Math.abs(netCents))}</strong>
-                  <span class="opacity-70">{netCents>=0 ? 'in your favor' : 'to settle'}</span>
+                  You owe <strong class="tabular-nums ml-1">${centsToString(totalOwedCents)}</strong>
                 </span>
               </div>
             </div>
