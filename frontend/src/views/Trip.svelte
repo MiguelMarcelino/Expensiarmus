@@ -338,8 +338,17 @@
         body: JSON.stringify({ tripId, description: description.trim(), amount: amountNum, category: category || undefined, expenseType: expenseType || undefined, incurredAt: incurredAtInput ? new Date(incurredAtInput).toISOString() : undefined, payerUserId, splits, payments, currency: expenseCurrency.toUpperCase() })
       });
       upsertExpense(res.expense as Expense);
+      // Invalidate and refresh server balances so UI updates instantly
+      serverBalances = null;
+      serverTransfers = null;
+      try {
+        const b = await api(`/trips/${tripId}/balances`);
+        serverBalances = (b && b.balances && Object.keys(b.balances || {}).length > 0) ? b.balances : null;
+        serverTransfers = (b && Array.isArray(b.transfers) && b.transfers.length > 0) ? b.transfers : null;
+        baseCurrency = (b?.baseCurrency || baseCurrency).toUpperCase();
+      } catch {}
       description = ''; amount = ''; category = ''; expenseType = '';
-      incurredAtInput = new Date().toISOString().slice(0, 16);
+      incurredAtInput = nowLocalDatetime();
       success = 'Expense added successfully.';
       setTimeout(() => { success = null; }, 3000);
       
@@ -365,6 +374,15 @@
     try {
       await api(`/expenses/${id}`, { method: 'DELETE' });
       expenses = expenses.filter((e) => e.id !== id);
+      // Invalidate and refresh server balances
+      serverBalances = null;
+      serverTransfers = null;
+      try {
+        const b = await api(`/trips/${tripId}/balances`);
+        serverBalances = (b && b.balances && Object.keys(b.balances || {}).length > 0) ? b.balances : null;
+        serverTransfers = (b && Array.isArray(b.transfers) && b.transfers.length > 0) ? b.transfers : null;
+        baseCurrency = (b?.baseCurrency || baseCurrency).toUpperCase();
+      } catch {}
       success = 'Expense deleted.';
       setTimeout(() => { success = null; }, 2000);
       await loadActivity();
@@ -737,6 +755,15 @@
         body: JSON.stringify({ amount: Number(editAmount) || 0, payments, splits, currency: (editing?.currency || baseCurrency).toUpperCase() })
       });
       upsertExpense(res.expense as Expense);
+      // Invalidate and refresh server balances
+      serverBalances = null;
+      serverTransfers = null;
+      try {
+        const b = await api(`/trips/${tripId}/balances`);
+        serverBalances = (b && b.balances && Object.keys(b.balances || {}).length > 0) ? b.balances : null;
+        serverTransfers = (b && Array.isArray(b.transfers) && b.transfers.length > 0) ? b.transfers : null;
+        baseCurrency = (b?.baseCurrency || baseCurrency).toUpperCase();
+      } catch {}
       success = 'Expense updated.';
       setTimeout(() => { success = null; }, 2500);
       closeEditor();
