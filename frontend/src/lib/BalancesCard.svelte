@@ -5,7 +5,7 @@
   export let me: { id: string; username: string } | null = null;
   export let centsToString: (c: number) => string;
   export let displayName: (id: string) => string;
-  export let currencyLabel: string = 'USD';
+  export let currencyLabel: string = 'EUR';
 </script>
 
 <div class="rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm">

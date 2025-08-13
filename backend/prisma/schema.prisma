@@ -27,7 +27,7 @@ model Trip {
   ownerId   String
   owner     User         @relation("TripOwner", fields: [ownerId], references: [id])
   createdAt DateTime     @default(now())
-  baseCurrency String    @default("USD")
+  baseCurrency String    @default("EUR")
 
   members   TripMember[]
   expenses  Expense[]
@@ -56,7 +56,7 @@ model Expense {
   quantity      Int?          @default(1)
   unitPriceCents Int?
   amountCents   Int
-  currency      String        @default("USD")
+  currency      String        @default("EUR")
   incurredAt    DateTime      @default(now())
   createdAt     DateTime      @default(now())
   deletedAt     DateTime?
@@ -84,11 +84,23 @@ model ExpensePayment {
   expenseId   String
   userId      String
   amountCents Int
-  currency    String @default("USD")
+  currency    String @default("EUR")
 
   expense   Expense @relation(fields: [expenseId], references: [id])
   user      User    @relation(fields: [userId], references: [id])
 
   @@unique([expenseId, userId])
   @@index([expenseId])
+}
+
+model CurrencyRate {
+  id        String   @id @default(cuid())
+  base      String
+  quote     String
+  date      DateTime // UTC date (00:00:00)
+  rate      Float
+  createdAt DateTime @default(now())
+
+  @@unique([base, quote, date])
+  @@index([base, quote, date])
 }

@@ -96,7 +96,7 @@ router.get("/trips/:tripId/activity", async (req: AuthenticatedRequest, res) => 
         id: `expense_${expense.id}`,
         kind: 'expense_created',
         at: expense.createdAt.toISOString(),
-        text: `${expense.createdBy.username} added "${expense.description}" for ${expense.currency || 'USD'} ${(expense.amountCents / 100).toFixed(2)}`,
+        text: `${expense.createdBy.username} added "${expense.description}" for ${expense.currency || 'EUR'} ${(expense.amountCents / 100).toFixed(2)}`,
       });
     } else {
       activities.push({
@@ -178,7 +178,7 @@ router.get("/trips/:tripId/balances", async (req: AuthenticatedRequest, res) => 
     include: { members: true, owner: true },
   });
   if (!trip) return res.status(404).json({ error: "Trip not found or access denied" });
-  const baseCurrency = normalizeCurrency(trip.baseCurrency || 'USD');
+  const baseCurrency = normalizeCurrency(trip.baseCurrency || 'EUR');
 
   const expenses = await prisma.expense.findMany({
     where: { tripId, deletedAt: null },
@@ -199,7 +199,7 @@ router.get("/trips/:tripId/balances", async (req: AuthenticatedRequest, res) => 
 
   for (const e of expenses) {
     const incurredAt = e.incurredAt;
-    const expenseCur = normalizeCurrency((e as any).currency || 'USD');
+    const expenseCur = normalizeCurrency((e as any).currency || 'EUR');
     const totalBase = await convertCents(e.amountCents, expenseCur, baseCurrency, incurredAt);
 
     // Build split map in base currency
@@ -267,7 +267,7 @@ router.post("/trips/:tripId/settle", async (req: AuthenticatedRequest, res) => {
     include: { members: true, owner: true },
   });
   if (!trip) return res.status(404).json({ error: "Trip not found or access denied" });
-  const baseCurrency = normalizeCurrency(trip.baseCurrency || 'USD');
+  const baseCurrency = normalizeCurrency(trip.baseCurrency || 'EUR');
 
   // Compute balances and transfers (same logic as balances endpoint)
   const expenses = await prisma.expense.findMany({
@@ -289,7 +289,7 @@ router.post("/trips/:tripId/settle", async (req: AuthenticatedRequest, res) => {
 
   for (const e of expenses) {
     const incurredAt = e.incurredAt;
-    const expenseCur = normalizeCurrency((e as any).currency || 'USD');
+    const expenseCur = normalizeCurrency((e as any).currency || 'EUR');
     const totalBase = await convertCents(e.amountCents, expenseCur, baseCurrency, incurredAt);
 
     const splitMap: Record<string, number> = {};
@@ -389,7 +389,7 @@ router.post("/trips/:tripId/settle", async (req: AuthenticatedRequest, res) => {
   const newBalances: Record<string, number> = Object.fromEntries(userIds.map((id) => [id, 0]));
   for (const e of b) {
     const incurredAt = e.incurredAt;
-    const expenseCur = normalizeCurrency((e as any).currency || 'USD');
+    const expenseCur = normalizeCurrency((e as any).currency || 'EUR');
     const totalBase = await convertCents(e.amountCents, expenseCur, baseCurrency, incurredAt);
     const splitMap: Record<string, number> = {};
     for (const s of e.splits) {

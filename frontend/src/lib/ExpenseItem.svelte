@@ -35,7 +35,7 @@
     </div>
   </div>
   <div class="text-right min-w-[160px]">
-    <div class="font-semibold tabular-nums">{expense.currency || 'USD'} ${centsToString(expense.amountCents)}</div>
+    <div class="font-semibold tabular-nums">{expense.currency || 'EUR'} ${centsToString(expense.amountCents)}</div>
     <div class="mt-2">
       <div class="inline-flex items-center gap-2">
         <button class="px-2 py-1 rounded-md text-xs border border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700/40" on:click={onEdit}>Edit</button>

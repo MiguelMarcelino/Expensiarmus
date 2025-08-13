@@ -24,7 +24,7 @@
   let tripName = '';
   let error: string | null = null;
   let success: string | null = null;
-  let baseCurrency: string = 'USD';
+  let baseCurrency: string = 'EUR';
   let serverBalances: Record<string, number> | null = null;
   let serverTransfers: { from: string; to: string; amountCents: number }[] | null = null;
   // Users to show in balances (members + me + expense creators)
@@ -43,7 +43,7 @@
   let paidByUserId: Record<string, string> = {};  // userId -> amount string
   let paidCurrencyByUserId: Record<string, string> = {}; // userId -> currency code
   let selectedSplitUserIdMap: Record<string, boolean> = {};
-  let expenseCurrency: string = 'USD';
+  let expenseCurrency: string = 'EUR';
   import { currencies } from '../lib/currencies';
   import { categories as predefinedCategories } from '../lib/categories';
   let incurredAtEl: HTMLInputElement | null = null;
@@ -255,11 +255,11 @@
       const [membersRes, expensesRes, balancesRes] = await Promise.all([
         api(`/trips/${tripId}/members`),
         api(`/trips/${tripId}/expenses`),
-        api(`/trips/${tripId}/balances`).catch(() => ({ baseCurrency: 'USD', balances: {}, transfers: [] })),
+        api(`/trips/${tripId}/balances`).catch(() => ({ baseCurrency: 'EUR', balances: {}, transfers: [] })),
       ]);
       members = membersRes.members;
-      baseCurrency = (membersRes.baseCurrency || balancesRes.baseCurrency || 'USD').toUpperCase();
-      expenseCurrency = baseCurrency;
+      baseCurrency = (membersRes.baseCurrency || balancesRes.baseCurrency || 'EUR').toUpperCase();
+      // Keep expense currency default as EUR; do not override with base currency
       // Ensure owner is available as payer option even if not listed as a member
       if (membersRes.owner) {
         const ownerUser = membersRes.owner as { id: string; username: string };

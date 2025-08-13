@@ -88,7 +88,7 @@ router.post("/expenses", async (req: AuthenticatedRequest, res) => {
 
   const amountCents = toCents(data.amount);
   const incurredAt = data.incurredAt ? new Date(data.incurredAt) : new Date();
-  const expenseCurrency = normalizeCurrency(data.currency || "USD");
+  const expenseCurrency = normalizeCurrency(data.currency || "EUR");
 
   try {
     const created = await prisma.$transaction(async (tx) => {
