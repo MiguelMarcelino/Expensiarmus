@@ -28,6 +28,8 @@
   let serverTransfers: { from: string; to: string; amountCents: number }[] | null = null;
   // Users to show in balances (members + me + expense creators)
   let balanceUsers: { id: string; username: string }[] = [];
+  let settling = false;
+  let myId: string = '';
 
   // manual form
   let description = '';
@@ -241,9 +243,8 @@
       if (!payerUserId) {
         payerUserId = me?.id || (members[0]?.user.id ?? '');
       }
-      if (expenses.length > 0 && expenses[0].category) {
-        tripName = expenses[0].category;
-      }
+      // Prefer server-provided trip name
+      tripName = membersRes.tripName || tripName || '';
       // Initialize selected split participants (everyone except payer)
       const allUsers = members.length > 0 ? members.map((m) => m.user) : (me ? [{ id: me.id, username: me.username }] : []);
       const participantIds = allUsers.filter((u) => u.id !== payerUserId).map((u) => u.id);
@@ -602,6 +603,36 @@
   // Make reactive dependencies explicit so updates occur when inputs change
   $: balances = serverBalances ? serverBalances : computeClientBalances(balanceUsers, expenses);
   $: transfers = serverTransfers ? serverTransfers : minimizeTransfers(balances);
+  $: myId = me?.id || '';
+  $: myDebts = (myId && Array.isArray(transfers)) ? transfers.filter((t) => t.from === myId && t.amountCents > 0) : [];
+  $: canSettle = myDebts.length > 0;
+
+  async function settleUp() {
+    if (!tripId || !me) return;
+    error = null; success = null; settling = true;
+    try {
+      const res = await api(`/trips/${tripId}/settle`, { method: 'POST' });
+      if (res.expense) {
+        upsertExpense(res.expense as Expense);
+      }
+      // Refresh server balances/transfers to reflect settlement
+      serverBalances = null;
+      serverTransfers = null;
+      try {
+        const b = await api(`/trips/${tripId}/balances`);
+        serverBalances = (b && b.balances && Object.keys(b.balances || {}).length > 0) ? b.balances : null;
+        serverTransfers = (b && Array.isArray(b.transfers) && b.transfers.length > 0) ? b.transfers : null;
+        baseCurrency = (b?.baseCurrency || baseCurrency).toUpperCase();
+      } catch {}
+      success = 'Settlement recorded.';
+      setTimeout(() => { success = null; }, 2500);
+      await loadActivity();
+    } catch (e: any) {
+      error = e.message;
+    } finally {
+      settling = false;
+    }
+  }
 
   onMount(() => {
     incurredAtInput = nowLocalDatetime();
@@ -860,6 +891,13 @@
     {displayName}
     currencyLabel={baseCurrency}
   />
+  {#if canSettle}
+    <div class="mt-3">
+      <button class="px-4 py-2 rounded-lg bg-emerald-600 text-white disabled:opacity-60 disabled:cursor-not-allowed" on:click={settleUp} disabled={settling}>
+        {settling ? 'Settling…' : 'Settle up'}
+      </button>
+    </div>
+  {/if}
 </section>
 
 <div class="grid md:grid-cols-4 lg:grid-cols-5 gap-6 mt-2">
