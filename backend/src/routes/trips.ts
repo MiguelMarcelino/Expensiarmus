@@ -73,7 +73,7 @@ router.get("/trips/:tripId/activity", async (req: AuthenticatedRequest, res) => 
   const expenses = await prisma.expense.findMany({
     where: { tripId },
     include: { createdBy: { select: { id: true, username: true } } },
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "desc" },
   });
 
   // Create activity events
@@ -108,8 +108,8 @@ router.get("/trips/:tripId/activity", async (req: AuthenticatedRequest, res) => 
     }
   }
 
-  // Sort by timestamp (oldest first for chronological order)
-  activities.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+  // Sort by timestamp (newest first)
+  activities.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
   res.json({ activities });
 });

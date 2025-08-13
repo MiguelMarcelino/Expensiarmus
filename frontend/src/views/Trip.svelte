@@ -1002,7 +1002,7 @@
 
       <div class="mt-3">
         <div class="mb-2">
-          <div class="text-sm font-semibold mb-1">Split equally among</div>
+          <div class="text-sm font-semibold mb-1">Split among</div>
           <div class="flex flex-wrap gap-2">
             {#each splitCandidates as u}
               {#key selectedSplitUserIdMap[u.id]}
