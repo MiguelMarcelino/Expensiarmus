@@ -22,6 +22,8 @@
   $: netCents = expenses.reduce((sum, e) => sum + computeMyDeltaCents(e, me?.id), 0);
   $: totalOwedCents = netCents > 0 ? netCents : 0;
   $: totalOweCents = netCents < 0 ? -netCents : 0;
+  // limit latest expenses shown on dashboard
+  $: latestExpenses = expenses.slice(0, 5);
 
   async function load() {
     if (!me) return;
@@ -30,7 +32,7 @@
       trips = fetched;
       const nameById: Record<string, string> = Object.fromEntries(trips.map((t) => [t.id, t.name]));
       const perTrip = await Promise.all(
-        trips.map((t) => api(`/trips/${t.id}/expenses`).then((r) => ({ tripId: t.id, name: t.name, expenses: r.expenses as Expense[] })))
+        trips.map((t) => api(`/trips/${t.id}/expenses?limit=5`).then((r) => ({ tripId: t.id, name: t.name, expenses: r.expenses as Expense[] })))
       );
       const all = perTrip.flatMap(({ tripId, name, expenses }) =>
         expenses.map((e) => ({ ...e, tripId, tripName: name }))
@@ -147,7 +149,7 @@
     <div class="text-sm opacity-70">No expenses yet.</div>
   {:else}
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {#each expenses as e}
+      {#each latestExpenses as e, i}
         {#key e.id}
           <a href={`#/trip/${e.tripId}`} class="block rounded-xl border border-white/30 dark:border-gray-700/40 bg-white/60 dark:bg-gray-900/50 backdrop-blur shadow-sm hover:shadow-md transition p-4">
             <div class="flex items-start justify-between gap-3">

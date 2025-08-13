@@ -19,16 +19,43 @@ router.get("/trips/:tripId/expenses", async (req: AuthenticatedRequest, res) => 
   });
   if (!trip) return res.status(404).json({ error: "Trip not found or access denied" });
 
-  const expenses = await prisma.expense.findMany({
-    where: { tripId, deletedAt: null },
-    include: {
-      splits: true,
-      payments: true,
-      createdBy: { select: { id: true, username: true } },
-    } as any,
-    orderBy: { incurredAt: "desc" },
-  });
-  res.json({ expenses });
+  // Optional pagination via query params
+  const limitRaw = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
+  const offsetRaw = Array.isArray(req.query.offset) ? req.query.offset[0] : req.query.offset;
+  const limitNum = limitRaw != null ? Number(limitRaw) : null;
+  const offsetNum = offsetRaw != null ? Number(offsetRaw) : null;
+  const hasPagination = Number.isFinite(limitNum) || Number.isFinite(offsetNum);
+
+  if (hasPagination) {
+    const limit = Math.max(1, Math.min(100, Number.isFinite(limitNum as number) ? (limitNum as number) : 50));
+    const offset = Math.max(0, Number.isFinite(offsetNum as number) ? (offsetNum as number) : 0);
+    const [expenses, total] = await Promise.all([
+      prisma.expense.findMany({
+        where: { tripId, deletedAt: null },
+        include: {
+          splits: true,
+          payments: true,
+          createdBy: { select: { id: true, username: true } },
+        } as any,
+        orderBy: { incurredAt: "desc" },
+        skip: offset,
+        take: limit,
+      }),
+      prisma.expense.count({ where: { tripId, deletedAt: null } }),
+    ]);
+    return res.json({ expenses, total, limit, offset });
+  } else {
+    const expenses = await prisma.expense.findMany({
+      where: { tripId, deletedAt: null },
+      include: {
+        splits: true,
+        payments: true,
+        createdBy: { select: { id: true, username: true } },
+      } as any,
+      orderBy: { incurredAt: "desc" },
+    });
+    return res.json({ expenses });
+  }
 });
 
 router.post("/expenses", async (req: AuthenticatedRequest, res) => {
