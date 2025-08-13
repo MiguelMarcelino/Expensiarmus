@@ -2,22 +2,11 @@
   import { onMount } from 'svelte';
   import { api } from '../lib/api';
   import { currentUser } from '../lib/auth';
-  import type { User } from '../lib/types';
+  import type { User, Expense } from '../lib/types';
   import ExpenseIcon from '../lib/ExpenseIcon.svelte';
+  import { centsToString, computeMyDeltaCents } from '../lib/money';
 
   type Trip = { id: string; name: string; createdAt: string };
-  type Expense = {
-    id: string;
-    description: string;
-    category?: string;
-    expenseType?: string;
-    amountCents: number;
-    incurredAt: string;
-    createdBy: { id: string; username: string };
-    splits: { userId: string; amountCents: number }[];
-    // payments may be included by the API; when missing, assume creator paid full amount
-    payments?: { userId: string; amountCents: number }[];
-  } & { tripId?: string };
 
   let me: User | null = null;
   currentUser.subscribe((u) => (me = u));
@@ -27,29 +16,12 @@
   let error: string | null = null;
 
   // flattened expense feed across all trips
-  let expenses: (Expense & { tripName: string })[] = [];
+  let expenses: (Expense & { tripId: string; tripName: string })[] = [];
 
   // totals for the current user based on netting across all expenses
-  $: netCents = expenses.reduce((sum, e) => sum + myDeltaCents(e), 0);
+  $: netCents = expenses.reduce((sum, e) => sum + computeMyDeltaCents(e, me?.id), 0);
   $: totalOwedCents = netCents > 0 ? netCents : 0;
   $: totalOweCents = netCents < 0 ? -netCents : 0;
-
-  function centsToString(c: number) {
-    return (c / 100).toFixed(2);
-  }
-
-  function myDeltaCents(e: Expense): number {
-    const mySplit = e.splits.find((s) => s.userId === me?.id)?.amountCents || 0;
-    let myPaid = 0;
-    if (e.payments && e.payments.length > 0) {
-      myPaid = e.payments
-        .filter((p) => p.userId === (me?.id || ''))
-        .reduce((sum, p) => sum + p.amountCents, 0);
-    } else {
-      myPaid = e.createdBy.id === (me?.id || '') ? e.amountCents : 0;
-    }
-    return myPaid - mySplit; // >0 you're owed, <0 you owe
-  }
 
   async function load() {
     if (!me) return;
@@ -107,11 +79,11 @@
               <div class="text-sm opacity-70">Welcome back</div>
               <h2 class="text-2xl md:text-3xl font-extrabold tracking-tight">Your balances</h2>
               <div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/20">
-                  You're owed <strong class="tabular-nums ml-1">${centsToString(totalOweCents)}</strong>
-                </span>
                 <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-500/10 text-green-700 dark:text-green-300 border border-green-500/20">
-                  You owe <strong class="tabular-nums ml-1">${centsToString(totalOwedCents)}</strong>
+                  You're owed <strong class="tabular-nums ml-1">${centsToString(totalOwedCents)}</strong>
+                </span>
+                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/20">
+                  You owe <strong class="tabular-nums ml-1">${centsToString(totalOweCents)}</strong>
                 </span>
               </div>
             </div>

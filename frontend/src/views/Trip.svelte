@@ -8,6 +8,7 @@
   import ActivityList from '../lib/ActivityList.svelte';
   import AddMember from '../lib/AddMember.svelte';
   import type { Member, Expense, ActivityEvent, SplitMode, PaymentMode, User } from '../lib/types';
+  import { centsToString } from '../lib/money';
 
   export let params: { id: string };
   let tripId: string = '';
@@ -46,8 +47,6 @@
   import { currencies } from '../lib/currencies';
 
   // Modes and percentage storage
-  type SplitMode = 'equal' | 'custom_amounts' | 'custom_percentages';
-  type PaymentMode = 'payer' | 'equal' | 'custom_amounts' | 'custom_percentages';
   let splitMode: SplitMode = 'equal';
   let paymentMode: PaymentMode = 'payer';
   let splitPctByUserId: Record<string, string> = {};
@@ -58,7 +57,7 @@
 
   // member form moved into AddMember component
 
-  function centsToString(c: number) { return (c / 100).toFixed(2); }
+  // money helper imported from ../lib/money
   function sumStrings(obj: Record<string, string>): number {
     return Object.values(obj).reduce((s, v) => s + (Number(v) || 0), 0);
   }
@@ -852,11 +851,11 @@
                   </span>
                 {:else if netCents < 0}
                   <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/20">
-                    You're owed <strong class="tabular-nums ml-1">{baseCurrency} ${centsToString(totalOweCents)}</strong>
+                    You owe <strong class="tabular-nums ml-1">{baseCurrency} ${centsToString(totalOweCents)}</strong>
                   </span>
                 {:else}
                   <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-500/10 text-green-700 dark:text-green-300 border border-green-500/20">
-                    You owe <strong class="tabular-nums ml-1">{baseCurrency} ${centsToString(totalOwedCents)}</strong>
+                    You're owed <strong class="tabular-nums ml-1">{baseCurrency} ${centsToString(totalOwedCents)}</strong>
                   </span>
                 {/if}
               </div>
