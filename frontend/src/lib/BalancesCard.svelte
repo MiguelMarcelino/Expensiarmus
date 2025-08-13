@@ -9,9 +9,10 @@
 </script>
 
 <div class="rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm">
-  <h2 class="font-semibold mb-3">Balances</h2>
-  <div class="text-sm grid md:grid-cols-2 gap-6">
+  <div class="grid md:grid-cols-2 gap-6">
     <div>
+      <h3 class="font-semibold mb-3">Balances</h3>
+      <div class="text-sm">
       {#if balanceUsers.length === 0}
         <div class="text-sm opacity-60">No participants yet.</div>
       {:else}
@@ -25,9 +26,10 @@
           </div>
         {/each}
       {/if}
+      </div>
     </div>
-    <div>
-      <div class="opacity-70 mb-1">Suggested transfers</div>
+    <div class="md:pl-6 md:border-l md:border-black/5 dark:md:border-white/10">
+      <h3 class="font-semibold mb-3">Suggested transfers</h3>
       {#if transfers.length === 0}
         <div class="text-sm opacity-60">All settled</div>
       {:else}
