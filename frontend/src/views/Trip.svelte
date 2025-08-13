@@ -45,6 +45,7 @@
   let selectedSplitUserIdMap: Record<string, boolean> = {};
   let expenseCurrency: string = 'USD';
   import { currencies } from '../lib/currencies';
+  import { categories as predefinedCategories } from '../lib/categories';
 
   // Modes and percentage storage
   let splitMode: SplitMode = 'equal';
@@ -937,7 +938,14 @@
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
         <input type="datetime-local" class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={incurredAtInput} />
-        <input class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" placeholder="Category (optional)" bind:value={category} />
+        <div>
+          <input class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" placeholder="Category (optional)" bind:value={category} list="category-options" />
+          <datalist id="category-options">
+            {#each predefinedCategories as c}
+              <option value={c}></option>
+            {/each}
+          </datalist>
+        </div>
       </div>
 
       <div>
