@@ -259,17 +259,21 @@
       const idsForPayments = payerOptions.map((u) => u.id);
       paidByUserId = Object.fromEntries(idsForPayments.map((id) => [id, id === payerUserId ? (Number(amount) || 0).toFixed(2) : '0']));
       paidCurrencyByUserId = Object.fromEntries(idsForPayments.map((id) => [id, expenseCurrency]));
-      // Server balances and transfers (base currency)
-      serverBalances = balancesRes?.balances || null;
-      serverTransfers = balancesRes?.transfers || null;
+      // Server balances and transfers (base currency) — ignore empty results
+      serverBalances = (balancesRes && balancesRes.balances && Object.keys(balancesRes.balances || {}).length > 0)
+        ? balancesRes.balances
+        : null;
+      serverTransfers = (balancesRes && Array.isArray(balancesRes.transfers) && balancesRes.transfers.length > 0)
+        ? balancesRes.transfers
+        : null;
       
       // Load activity feed
       await loadActivity();
       // After initial load, fetch server balances explicitly (base currency)
       try {
         const b = await api(`/trips/${tripId}/balances`);
-        serverBalances = b?.balances || null;
-        serverTransfers = b?.transfers || null;
+        serverBalances = (b && b.balances && Object.keys(b.balances || {}).length > 0) ? b.balances : null;
+        serverTransfers = (b && Array.isArray(b.transfers) && b.transfers.length > 0) ? b.transfers : null;
         baseCurrency = (b?.baseCurrency || baseCurrency).toUpperCase();
       } catch {}
     } catch (e: any) {
@@ -531,12 +535,11 @@
 
   // Member add handled by AddMember component
 
-  // Balance summary (who owes whom)
-  function computeBalances() {
-    if (serverBalances) return serverBalances;
-    const userIds = balanceUsers.map((u) => u.id);
+  // Balance summary (who owes whom) computed on client when server doesn't provide it
+  function computeClientBalances(users: { id: string; username: string }[], exps: Expense[]) {
+    const userIds = users.map((u) => u.id);
     const balances: Record<string, number> = Object.fromEntries(userIds.map((id) => [id, 0]));
-    for (const e of expenses) {
+    for (const e of exps) {
       const total = e.amountCents;
       const splitMap: Record<string, number> = {};
       for (const s of e.splits) splitMap[s.userId] = s.amountCents;
@@ -556,7 +559,6 @@
   }
 
   function minimizeTransfers(balances: Record<string, number>) {
-    if (serverTransfers) return serverTransfers;
     const creditors: { id: string; amount: number }[] = [];
     const debtors: { id: string; amount: number }[] = [];
     for (const [id, cents] of Object.entries(balances)) {
@@ -580,8 +582,9 @@
     return transfers;
   }
 
-  $: balances = computeBalances();
-  $: transfers = minimizeTransfers(balances);
+  // Make reactive dependencies explicit so updates occur when inputs change
+  $: balances = serverBalances ? serverBalances : computeClientBalances(balanceUsers, expenses);
+  $: transfers = serverTransfers ? serverTransfers : minimizeTransfers(balances);
 
   onMount(() => {
     incurredAtInput = nowLocalDatetime();
