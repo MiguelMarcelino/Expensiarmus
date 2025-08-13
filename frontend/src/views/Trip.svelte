@@ -132,8 +132,7 @@
     return myPaid - mySplit; // >0 you're owed, <0 you owe
   }
 
-  // Netting across expenses: prefer server balances when available
-  $: netCents = (serverBalances && me) ? (serverBalances[me.id] || 0) : expenses.reduce((sum, e) => sum + myDeltaCents(e), 0);
+  $: netCents = me ? (balances[me.id] || 0) : 0;
   $: totalOwedCents = netCents > 0 ? netCents : 0;
   $: totalOweCents = netCents < 0 ? -netCents : 0;
 
@@ -816,17 +815,19 @@
               <div class="text-sm opacity-70">Trip</div>
               <h2 class="text-2xl md:text-3xl font-extrabold tracking-tight">{tripName || 'Trip details'}</h2>
               <div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/20">
-                   You owe <strong class="tabular-nums ml-1">{baseCurrency} ${centsToString(totalOweCents)}</strong>
-                </span>
-                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-500/10 text-green-700 dark:text-green-300 border border-green-500/20">
-                   You're owed <strong class="tabular-nums ml-1">{baseCurrency} ${centsToString(totalOwedCents)}</strong>
-                </span>
-                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-500/10 text-gray-700 dark:text-gray-200 border border-gray-500/20">
-                  Net
-                   <strong class="tabular-nums ml-1 {netCents>=0 ? 'text-green-600' : 'text-red-600'}">{baseCurrency} ${centsToString(Math.abs(netCents))}</strong>
-                  <span class="opacity-70">{netCents>=0 ? 'in your favor' : 'to settle'}</span>
-                </span>
+                {#if netCents === 0}
+                  <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-500/10 text-gray-700 dark:text-gray-200 border border-gray-500/20">
+                    You're even
+                  </span>
+                {:else if netCents < 0}
+                  <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/20">
+                    You're owed <strong class="tabular-nums ml-1">{baseCurrency} ${centsToString(totalOweCents)}</strong>
+                  </span>
+                {:else}
+                  <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-500/10 text-green-700 dark:text-green-300 border border-green-500/20">
+                    You owe <strong class="tabular-nums ml-1">{baseCurrency} ${centsToString(totalOwedCents)}</strong>
+                  </span>
+                {/if}
               </div>
             </div>
             <div class="text-right hidden sm:block">
