@@ -46,6 +46,34 @@
   let expenseCurrency: string = 'USD';
   import { currencies } from '../lib/currencies';
   import { categories as predefinedCategories } from '../lib/categories';
+  let incurredAtEl: HTMLInputElement | null = null;
+
+  // Visualization helpers for compact allocation preview
+  const colorPalette: string[] = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#84cc16', '#f472b6', '#a855f7', '#f97316', '#22d3ee'];
+  function userColor(userId: string): string {
+    const idx = payerOptions.findIndex((u) => u.id === userId);
+    const i = idx >= 0 ? idx : 0;
+    return colorPalette[i % colorPalette.length];
+  }
+  type Segment = { id: string; name: string; pct: number; color: string };
+  $: paysSegments = (() => {
+    const total = Number(amount) || 0;
+    const ids = payerOptions.map((u) => u.id);
+    if (!total || ids.length === 0) return [] as Segment[];
+    const list: Segment[] = [];
+    for (const u of payerOptions) {
+      const val = Math.max(0, Number(paidByUserId[u.id] || 0));
+      if (val <= 0) continue;
+      const pct = (val * 100) / total;
+      list.push({ id: u.id, name: u.username, pct, color: userColor(u.id) });
+    }
+    const sum = list.reduce((s, x) => s + x.pct, 0);
+    if (sum > 0 && Math.abs(sum - 100) > 0.01) {
+      const factor = 100 / sum;
+      for (const s of list) s.pct *= factor;
+    }
+    return list;
+  })();
 
   // Modes and percentage storage
   let splitMode: SplitMode = 'equal';
@@ -937,7 +965,12 @@
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
-        <input type="datetime-local" class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={incurredAtInput} />
+        <div class="flex items-center gap-2">
+          <input type="datetime-local" class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={incurredAtInput} bind:this={incurredAtEl} />
+          <button type="button" class="px-3 py-2 rounded-lg border border-black/5 dark:border-white/10 bg-white/70 dark:bg-gray-800/60" on:click={() => { try { (incurredAtEl as any)?.showPicker?.(); } catch {} incurredAtEl?.focus(); }} aria-label="Pick date and time">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          </button>
+        </div>
         <div>
           <input class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" placeholder="Category (optional)" bind:value={category} list="category-options" />
           <datalist id="category-options">
@@ -949,15 +982,6 @@
       </div>
 
       <div>
-        <label class="text-xs opacity-70 block mb-1" for="expense-currency-select">Expense currency</label>
-        <select id="expense-currency-select" class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={expenseCurrency}>
-          {#each currencies as c}
-            <option value={c}>{c}</option>
-          {/each}
-        </select>
-      </div>
-
-      <div>
         <label class="text-xs opacity-70 block mb-1" for="payer-select">Payer</label>
         <select id="payer-select" class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={payerUserId} on:change={onPayerChange}>
           {#each payerOptions as u}
@@ -966,7 +990,17 @@
         </select>
       </div>
 
-      <div class="mt-1">
+      
+      <div>
+        <label class="text-xs opacity-70 block mb-1" for="expense-currency-select">Expense currency</label>
+        <select id="expense-currency-select" class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={expenseCurrency}>
+          {#each currencies as c}
+            <option value={c}>{c}</option>
+          {/each}
+        </select>
+      </div>
+
+      <div class="mt-3">
         <div class="mb-2">
           <div class="text-sm font-semibold mb-1">Split equally among</div>
           <div class="flex flex-wrap gap-2">
@@ -987,8 +1021,8 @@
               {/key}
             {/each}
           </div>
-        </div>
-        <div class="flex items-center justify-between mb-1">
+          </div>
+          <div class="flex items-center justify-between mb-1">
           <div class="text-sm font-semibold">Who pays how much</div>
           <select class="text-xs p-1 rounded-md bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10" bind:value={paymentMode} on:change={onPaymentModeChange}>
             <option value="payer">Payer covers all</option>
@@ -996,39 +1030,60 @@
             <option value="custom_percentages">Custom percentages</option>
             <option value="custom_amounts">Custom amounts</option>
           </select>
-        </div>
-        <div class="space-y-1.5">
-        {#each payerOptions as u}
-          <div class="flex items-center gap-2 py-0.5 min-w-0">
-            <span class="w-28 text-sm opacity-80">{u.username}</span>
-            {#if paymentMode === 'custom_percentages'}
-              <div class="flex items-center gap-2 flex-1 min-w-0">
-                <input type="number" min="0" max="100" step="0.01" class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidPctByUserId[u.id]} on:input={(e) => onPaidPercentInput(u.id, (e.target as HTMLInputElement).value)} />
-                <span class="text-sm opacity-70">%</span>
-                <div class="w-full min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{paidByUserId[u.id]}</div>
-                <select class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidCurrencyByUserId[u.id]}>
-                  {#each currencies as c}
-                    <option value={c}>{c}</option>
-                  {/each}
-                </select>
-              </div>
-            {:else if paymentMode === 'equal' || paymentMode === 'payer'}
-              <div class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{paidByUserId[u.id]}</div>
-            {:else}
-              <div class="flex items-center gap-2 flex-1 min-w-0">
-                <input type="number" min="0" step="0.01" class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidByUserId[u.id]} on:input={(e) => paidByUserId[u.id] = (e.target as HTMLInputElement).value} />
-                <select class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidCurrencyByUserId[u.id]}>
-                  {#each currencies as c}
-                    <option value={c}>{c}</option>
-                  {/each}
-                </select>
-              </div>
-            {/if}
           </div>
-        {/each}
+          {#if paymentMode === 'custom_percentages' || paymentMode === 'custom_amounts'}
+            <div class="space-y-1.5">
+            {#each payerOptions as u}
+              <div class="flex items-center gap-2 py-0.5 min-w-0">
+                <span class="w-28 text-sm opacity-80">{u.username}</span>
+                {#if paymentMode === 'custom_percentages'}
+                  <div class="flex items-center gap-2 flex-1 min-w-0">
+                    <input type="number" min="0" max="100" step="0.01" class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidPctByUserId[u.id]} on:input={(e) => onPaidPercentInput(u.id, (e.target as HTMLInputElement).value)} />
+                    <span class="text-sm opacity-70">%</span>
+                    <div class="w-full min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{paidByUserId[u.id]}</div>
+                    <select class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidCurrencyByUserId[u.id]}>
+                      {#each currencies as c}
+                        <option value={c}>{c}</option>
+                      {/each}
+                    </select>
+                  </div>
+                {:else}
+                  <div class="flex items-center gap-2 flex-1 min-w-0">
+                    <input type="number" min="0" step="0.01" class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidByUserId[u.id]} on:input={(e) => paidByUserId[u.id] = (e.target as HTMLInputElement).value} />
+                    <select class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidCurrencyByUserId[u.id]}>
+                      {#each currencies as c}
+                        <option value={c}>{c}</option>
+                      {/each}
+                    </select>
+                  </div>
+                {/if}
+              </div>
+            {/each}
+            </div>
+          {/if}
+          <div class="text-xs opacity-70 mt-1">Total payments: ${sumStrings(paidByUserId).toFixed(2)}</div>
+          {#if Number(amount) > 0}
+            <div class="mt-2 space-y-2">
+              <div class="text-xs opacity-70">Who pays</div>
+              <div class="w-full h-3 rounded-full overflow-hidden border border-black/5 dark:border-white/10 bg-white/60 dark:bg-gray-800/50">
+                <div class="flex h-full w-full">
+                  {#each paysSegments as s}
+                    <div title={`${s.name} ${s.pct.toFixed(0)}%`} style={`width:${s.pct}%;background-color:${s.color}`}></div>
+                  {/each}
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                {#each paysSegments as s}
+                  <div class="inline-flex items-center gap-1 text-xs opacity-80">
+                    <span class="inline-block w-2.5 h-2.5 rounded-sm" style={`background-color:${s.color}`}></span>
+                    <span class="truncate max-w-[8rem]">{s.name}</span>
+                    <span class="tabular-nums">{s.pct.toFixed(0)}%</span>
+                  </div>
+                {/each}
+              </div>
+            </div>
+          {/if}
         </div>
-        <div class="text-xs opacity-70 mt-1">Total payments: ${sumStrings(paidByUserId).toFixed(2)}</div>
-      </div>
 
       
 
