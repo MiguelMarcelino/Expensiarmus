@@ -163,6 +163,27 @@ router.post("/trips/:tripId/members", async (req: AuthenticatedRequest, res) => 
   res.json({ members: transformedMembers });
 });
 
+// Update trip name (owner-only)
+router.put("/trips/:tripId", async (req: AuthenticatedRequest, res) => {
+  const paramsSchema = z.object({ tripId: z.string() });
+  const bodySchema = z.object({ name: z.string().min(1).max(100) });
+  const params = paramsSchema.safeParse(req.params);
+  if (!params.success) return res.status(400).json({ error: params.error.flatten() });
+  const body = bodySchema.safeParse(req.body);
+  if (!body.success) return res.status(400).json({ error: body.error.flatten() });
+
+  const { tripId } = params.data;
+  const { name } = body.data;
+  const userId = req.user!.id;
+
+  const trip = await prisma.trip.findUnique({ where: { id: tripId } });
+  if (!trip) return res.status(404).json({ error: "Trip not found" });
+  if (trip.ownerId !== userId) return res.status(403).json({ error: "Only the owner can rename the trip" });
+
+  const updated = await prisma.trip.update({ where: { id: tripId }, data: { name } });
+  res.json({ trip: { id: updated.id, name: updated.name, baseCurrency: updated.baseCurrency } });
+});
+
 export default router;
 
 // Additional balances endpoint

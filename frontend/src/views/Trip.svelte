@@ -20,6 +20,10 @@
   let members: Member[] = [];
   let expenses: Expense[] = [];
   let tripName = '';
+  let ownerId: string = '';
+  $: canEditTrip = !!me && ownerId && me.id === ownerId;
+  let editingTripName = false;
+  let editTripName = '';
   let error: string | null = null;
   let success: string | null = null;
   let baseCurrency: string = 'EUR';
@@ -261,6 +265,7 @@
       // Ensure owner is available as payer option even if not listed as a member
       if (membersRes.owner) {
         const ownerUser = membersRes.owner as { id: string; username: string };
+        ownerId = ownerUser.id;
         if (!members.find((m) => m.user.id === ownerUser.id)) {
           members = [{ user: ownerUser }, ...members];
         }
@@ -672,6 +677,25 @@
     return 'Unknown';
   }
 
+  async function saveTripName() {
+    const newName = (editTripName || '').trim();
+    if (!newName) { cancelEditTripName(); return; }
+    try {
+      await api(`/trips/${tripId}`, { method: 'PUT', body: JSON.stringify({ name: newName }) });
+      tripName = newName;
+      editingTripName = false;
+      success = 'Trip renamed.';
+      setTimeout(() => { success = null; }, 2000);
+    } catch (e: any) {
+      error = e.message;
+    }
+  }
+
+  function cancelEditTripName() {
+    editingTripName = false;
+    editTripName = '';
+  }
+
   // ----- Expense editor modal -----
   let showEditor = false;
   let editing: Expense | null = null;
@@ -870,7 +894,20 @@
           <div class="flex items-start justify-between gap-4">
             <div>
               <div class="text-sm opacity-70">Trip</div>
-              <h2 class="text-2xl md:text-3xl font-extrabold tracking-tight">{tripName || 'Trip details'}</h2>
+              <div class="flex items-center gap-2">
+                {#if editingTripName}
+                  <input class="text-2xl md:text-3xl font-extrabold tracking-tight bg-transparent border-b border-black/20 dark:border-white/20 focus:outline-none focus:border-indigo-500 min-w-0" bind:value={editTripName} on:keydown={(e) => { const k = (e as KeyboardEvent).key; if (k === 'Enter') saveTripName(); if (k === 'Escape') cancelEditTripName(); }} />
+                  <button class="px-2 py-1 rounded-md bg-indigo-600 text-white text-xs" on:click={saveTripName}>Save</button>
+                  <button class="px-2 py-1 rounded-md border border-black/10 dark:border-white/10 text-xs" on:click={cancelEditTripName}>Cancel</button>
+                {:else}
+                  <h2 class="text-2xl md:text-3xl font-extrabold tracking-tight truncate">{tripName || 'Trip details'}</h2>
+                  {#if canEditTrip}
+                    <button class="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/10" title="Rename trip" aria-label="Rename trip" on:click={() => { editingTripName = true; editTripName = tripName; }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                    </button>
+                  {/if}
+                {/if}
+              </div>
               <div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
                 {#if netCents === 0}
                   <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-500/10 text-gray-700 dark:text-gray-200 border border-gray-500/20">
