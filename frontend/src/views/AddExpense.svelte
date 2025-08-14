@@ -36,6 +36,33 @@
   let selectedSplitUserIdMap: Record<string, boolean> = {};
   let aiInput = '';
 
+  // Visualization helpers for compact allocation preview (payments)
+  const colorPalette: string[] = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#84cc16', '#f472b6', '#a855f7', '#f97316', '#22d3ee'];
+  function userColor(userId: string): string {
+    const idx = payerOptions.findIndex((u) => u.id === userId);
+    const i = idx >= 0 ? idx : 0;
+    return colorPalette[i % colorPalette.length];
+  }
+  type Segment = { id: string; name: string; pct: number; color: string };
+  $: paysSegments = (() => {
+    const total = Number(amount) || 0;
+    const ids = payerOptions.map((u) => u.id);
+    if (!total || ids.length === 0) return [] as Segment[];
+    const list: Segment[] = [];
+    for (const u of payerOptions) {
+      const val = Math.max(0, Number(paidByUserId[u.id] || 0));
+      if (val <= 0) continue;
+      const pct = (val * 100) / total;
+      list.push({ id: u.id, name: u.username, pct, color: userColor(u.id) });
+    }
+    const sum = list.reduce((s, x) => s + x.pct, 0);
+    if (sum > 0 && Math.abs(sum - 100) > 0.01) {
+      const factor = 100 / sum;
+      for (const s of list) s.pct *= factor;
+    }
+    return list;
+  })();
+
   $: addDisabled = !tripId || description.trim().length === 0 || Number(amount) <= 0;
 
   $: payerOptions = (() => {
@@ -396,36 +423,27 @@
       </div>
     {/if}
     <div class="text-xs opacity-70 mt-1">Total payments: ${sumStrings(paidByUserId).toFixed(2)}</div>
-
-    <div class="mt-3">
-      <div class="flex items-center justify-between mb-1">
-        <div class="text-sm font-semibold">Who owes how much</div>
-        <select class="text-xs p-1 rounded-md bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10" bind:value={splitMode} on:change={() => recalcSplits()}>
-          <option value="equal">Split equally</option>
-          <option value="custom_percentages">Custom percentages</option>
-          <option value="custom_amounts">Custom amounts</option>
-        </select>
-      </div>
-      <div class="space-y-1.5">
-        {#each splitParticipants as u}
-          <div class="flex items-center gap-2 py-0.5 min-w-0">
-            <span class="w-28 text-sm opacity-80">{u.username}</span>
-            {#if splitMode === 'custom_percentages'}
-              <div class="flex items-center gap-2 flex-1 min-w-0">
-                <input type="number" min="0" max="100" step="0.01" class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={splitPctByUserId[u.id]} on:input={(e) => onSplitPercentInput(u.id, (e.target as HTMLInputElement).value)} />
-                <span class="text-sm opacity-70">%</span>
-                <div class="w-full min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{splitByUserId[u.id]}</div>
-              </div>
-            {:else if splitMode === 'equal'}
-              <div class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{splitByUserId[u.id] || '0.00'}</div>
-            {:else}
-              <input type="number" min="0" step="0.01" class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={splitByUserId[u.id]} />
-            {/if}
+    {#if Number(amount) > 0}
+      <div class="mt-2 space-y-2">
+        <div class="text-xs opacity-70">Who pays</div>
+        <div class="w-full h-3 rounded-full overflow-hidden border border-black/5 dark:border-white/10 bg-white/60 dark:bg-gray-800/50">
+          <div class="flex h-full w-full">
+            {#each paysSegments as s}
+              <div title={`${s.name} ${s.pct.toFixed(0)}%`} style={`width:${s.pct}%;background-color:${s.color}`}></div>
+            {/each}
           </div>
-        {/each}
+        </div>
+        <div class="flex flex-wrap gap-2">
+          {#each paysSegments as s}
+            <div class="inline-flex items-center gap-1 text-xs opacity-80">
+              <span class="inline-block w-2.5 h-2.5 rounded-sm" style={`background-color:${s.color}`}></span>
+              <span class="truncate max-w-[8rem]">{s.name}</span>
+              <span class="tabular-nums">{s.pct.toFixed(0)}%</span>
+            </div>
+          {/each}
+        </div>
       </div>
-      <div class="text-xs opacity-70 mt-1">Total splits: ${sumStrings(Object.fromEntries(Object.entries(splitByUserId).filter(([id]) => selectedSplitUserIdMap[id]))).toFixed(2)}</div>
-    </div>
+    {/if}
   </div>
 
   <div class="flex items-center justify-end gap-2 pt-2">
