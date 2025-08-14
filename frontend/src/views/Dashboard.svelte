@@ -30,9 +30,8 @@
     try {
       const { trips: fetched } = await api('/trips');
       trips = fetched;
-      const nameById: Record<string, string> = Object.fromEntries(trips.map((t) => [t.id, t.name]));
       const perTrip = await Promise.all(
-        trips.map((t) => api(`/trips/${t.id}/expenses?limit=5`).then((r) => ({ tripId: t.id, name: t.name, expenses: r.expenses as Expense[] })))
+        trips.map((t) => api(`/trips/${t.id}/expenses`).then((r) => ({ tripId: t.id, name: t.name, expenses: r.expenses as Expense[] })))
       );
       const all = perTrip.flatMap(({ tripId, name, expenses }) =>
         expenses.map((e) => ({ ...e, tripId, tripName: name }))
