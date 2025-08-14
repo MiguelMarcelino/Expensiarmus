@@ -63,3 +63,36 @@ export async function api(path: string, options: RequestInit = {}) {
   }
   return data;
 }
+
+// Raw fetch with auth headers. Does not force Content-Type; useful for FormData or binary responses
+export async function fetchAuthed(path: string, options: RequestInit = {}) {
+  const providedHeaders = (options.headers || {}) as Record<string, string>;
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+  const headers = {
+    ...(isFormData ? {} : { 'Content-Type': providedHeaders['Content-Type'] || providedHeaders['content-type'] || 'application/json' }),
+    ...providedHeaders,
+    ...authHeaders(),
+  } as Record<string, string>;
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  return res;
+}
+
+// Download helper for CSV or other files
+export async function download(path: string, filename: string) {
+  const res = await fetchAuthed(path, { method: 'GET' });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    let message = `Request failed: ${res.status}`;
+    try { if (text) { const j = JSON.parse(text); message = extractErrorMessage(j, res.status); } } catch {}
+    throw new Error(message);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

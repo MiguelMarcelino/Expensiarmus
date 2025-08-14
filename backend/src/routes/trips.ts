@@ -21,6 +21,17 @@ router.get("/trips", async (req: AuthenticatedRequest, res) => {
   res.json({ trips });
 });
 
+// Trips owned by current user (profile section)
+router.get("/me/trips/owned", async (req: AuthenticatedRequest, res) => {
+  const userId = req.user!.id;
+  const trips = await prisma.trip.findMany({
+    where: { ownerId: userId },
+    select: { id: true, name: true, createdAt: true, baseCurrency: true },
+    orderBy: { createdAt: "desc" },
+  });
+  res.json({ trips });
+});
+
 router.get("/trips/:tripId/members", async (req: AuthenticatedRequest, res) => {
   const paramsSchema = z.object({ tripId: z.string() });
   const params = paramsSchema.safeParse(req.params);

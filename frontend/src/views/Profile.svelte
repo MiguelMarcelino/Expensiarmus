@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { api, API_BASE } from '../lib/api';
+  import { api, API_BASE, download, fetchAuthed } from '../lib/api';
   import { currentUser } from '../lib/auth';
   import type { User } from '../lib/types';
   import { showError, showSuccess } from '../lib/alerts';
@@ -18,6 +18,10 @@
   let newPassword = '';
   let confirmPassword = '';
 
+  type OwnedTrip = { id: string; name: string; createdAt: string; baseCurrency?: string };
+  let ownedTrips: OwnedTrip[] = [];
+  let loadingOwned = false;
+
   async function load() {
     try {
       const { user } = await api('/me');
@@ -25,6 +29,16 @@
       username = user.username;
       currentUser.set(user);
       localStorage.setItem('user', JSON.stringify(user));
+      // Load owned trips
+      loadingOwned = true;
+      try {
+        const { trips } = await api('/me/trips/owned');
+        ownedTrips = trips;
+      } catch (e: any) {
+        showError(e.message);
+      } finally {
+        loadingOwned = false;
+      }
     } catch (e: any) {
       showError(e.message);
       if (!me) {
@@ -44,6 +58,40 @@
       showError(e.message);
     } finally {
       saving = false;
+    }
+  }
+
+  async function exportTrip(tripId: string, tripName: string) {
+    try {
+      await download(`/trips/${tripId}/expenses/export.csv`, `${tripName.replace(/[^a-z0-9\-_]+/gi, '_')}-expenses.csv`);
+      showSuccess('Export started');
+    } catch (e: any) {
+      showError(e.message);
+    }
+  }
+
+  async function importTripCsv(tripId: string, ev: Event) {
+    const input = ev.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const res = await fetchAuthed(`/trips/${tripId}/expenses/import`, { method: 'POST', body: form });
+      const text = await res.text().catch(() => '');
+      let data: any = {};
+      if (text) {
+        try { data = JSON.parse(text); } catch {}
+      }
+      if (!res.ok) {
+        const msg = data?.error || data?.message || `Import failed (${res.status})`;
+        throw new Error(msg);
+      }
+      const imported = data.imported || 0;
+      showSuccess(`Imported ${imported} expenses`);
+      input.value = '';
+    } catch (e: any) {
+      showError(e.message);
     }
   }
 
@@ -173,6 +221,35 @@
             <button class="px-4 py-2 rounded bg-gray-900 text-white dark:bg-gray-200 dark:text-gray-900 disabled:opacity-60 disabled:cursor-not-allowed" on:click={changePassword} disabled={changingPw || !currentPassword || !newPassword || !confirmPassword || newPassword !== confirmPassword}>{changingPw ? 'Updating…' : 'Update password'}</button>
           </div>
         </div>
+      </div>
+
+      <div class="rounded-2xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-semibold">Your trips</h2>
+          {#if loadingOwned}
+            <span class="text-xs opacity-70">Loading…</span>
+          {/if}
+        </div>
+        {#if ownedTrips.length === 0 && !loadingOwned}
+          <div class="text-sm opacity-70">You don't own any trips yet.</div>
+        {:else}
+          <div class="grid gap-3">
+            {#each ownedTrips as t}
+              <div class="flex items-center justify-between p-3 rounded-xl border border-black/5 dark:border-white/10 bg-white/70 dark:bg-gray-800/50">
+                <div class="min-w-0">
+                  <div class="font-medium truncate">{t.name}</div>
+                  <div class="text-xs opacity-70">{new Date(t.createdAt).toLocaleDateString()} • Base {t.baseCurrency || 'EUR'}</div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button class="px-3 py-1.5 rounded bg-gray-900 text-white text-sm dark:bg-gray-200 dark:text-gray-900" on:click={() => exportTrip(t.id, t.name)} title="Export CSV">Export</button>
+                  <label class="px-3 py-1.5 rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 text-sm cursor-pointer" title="Import CSV to create expenses (duplicates are skipped)">
+                    Import CSV<input type="file" accept=".csv,text/csv" class="hidden" on:change={(ev) => importTripCsv(t.id, ev)} />
+                  </label>
+                </div>
+              </div>
+            {/each}
+          </div>
+        {/if}
       </div>
     </div>
   </div>

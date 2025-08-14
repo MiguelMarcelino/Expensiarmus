@@ -3,8 +3,22 @@ import { z } from "zod";
 import { prisma } from "../prisma";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { convertCents, normalizeCurrency } from "../utils/fx";
+import multer from "multer";
+import { parse as parseCsv } from "csv-parse/sync";
+import { stringify as stringifyCsv } from "csv-stringify/sync";
 
 const router = Router();
+
+// Multer configuration for CSV uploads (in-memory)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+  fileFilter: (_req, file, cb) => {
+    const isCsv = file.mimetype === "text/csv" || file.originalname.toLowerCase().endsWith(".csv");
+    if (isCsv) cb(null, true);
+    else cb(new Error("Only CSV files are allowed"));
+  },
+});
 
 function toCents(amount: number): number {
   return Math.round(amount * 100);
@@ -55,6 +69,171 @@ router.get("/trips/:tripId/expenses", async (req: AuthenticatedRequest, res) => 
       orderBy: { incurredAt: "desc" },
     });
     return res.json({ expenses });
+  }
+});
+
+// Export expenses of a trip to CSV (owner-only)
+router.get("/trips/:tripId/expenses/export.csv", async (req: AuthenticatedRequest, res) => {
+  const tripId = req.params.tripId;
+  const userId = req.user!.id;
+  const trip = await prisma.trip.findUnique({ where: { id: tripId } });
+  if (!trip) return res.status(404).json({ error: "Trip not found" });
+  if (trip.ownerId !== userId) return res.status(403).json({ error: "Only the owner can export this trip" });
+
+  const expenses = await prisma.expense.findMany({
+    where: { tripId, deletedAt: null },
+    include: { splits: true, payments: true, createdBy: { select: { id: true, username: true } } } as any,
+    orderBy: { incurredAt: "asc" },
+  });
+
+  const records = expenses.map((e) => ({
+    id: e.id,
+    description: e.description,
+    category: e.category || "",
+    expenseType: e.expenseType || "",
+    quantity: e.quantity ?? "",
+    unitPrice: e.unitPriceCents != null ? (e.unitPriceCents / 100).toFixed(2) : "",
+    amount: (e.amountCents / 100).toFixed(2),
+    currency: (e as any).currency || "EUR",
+    incurredAt: e.incurredAt.toISOString(),
+    createdById: e.createdById,
+    splits: JSON.stringify(e.splits.map((s) => ({ userId: s.userId, amount: (s.amountCents / 100) }))),
+    payments: JSON.stringify((e.payments || []).map((p: any) => ({ userId: p.userId, amount: (p.amountCents / 100), currency: p.currency })) ),
+  }));
+
+  const header = [
+    "id",
+    "description",
+    "category",
+    "expenseType",
+    "quantity",
+    "unitPrice",
+    "amount",
+    "currency",
+    "incurredAt",
+    "createdById",
+    "splits",
+    "payments",
+  ];
+  const csv = stringifyCsv(records, { header: true, columns: header });
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename=trip-${tripId}-expenses.csv`);
+  res.status(200).send(csv);
+});
+
+// Import expenses from CSV (owner-only)
+router.post("/trips/:tripId/expenses/import", upload.single("file"), async (req: AuthenticatedRequest, res) => {
+  const tripId = req.params.tripId;
+  const userId = req.user!.id;
+  const trip = await prisma.trip.findUnique({ where: { id: tripId } });
+  if (!trip) return res.status(404).json({ error: "Trip not found" });
+  if (trip.ownerId !== userId) return res.status(403).json({ error: "Only the owner can import into this trip" });
+  if (!req.file || !req.file.buffer) return res.status(400).json({ error: "No CSV file uploaded" });
+
+  try {
+    // Import mode: "create" (create all rows as new) or "skip" (skip duplicates). Default: skip
+    const modeRaw = (req.body as any)?.mode ? String((req.body as any).mode).toLowerCase() : "";
+    const mode: "create" | "skip" = (modeRaw === "create" || modeRaw === "create_new") ? "create" : "skip";
+    const text = req.file.buffer.toString("utf8");
+    const rows: any[] = parseCsv(text, { columns: true, skip_empty_lines: true, trim: true });
+    const createdIds: string[] = [];
+    const skipped: { row: number; reason: string; id?: string }[] = [];
+
+    await prisma.$transaction(async (tx) => {
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const description = String(row.description || "").trim();
+        if (!description) continue;
+        const category = row.category ? String(row.category).trim() : undefined;
+        const expenseType = row.expenseType ? String(row.expenseType).trim() : undefined;
+        const quantity = row.quantity ? Number(row.quantity) : undefined;
+        const unitPrice = row.unitPrice ? Number(row.unitPrice) : undefined;
+        const amount = Number(row.amount);
+        const currency = row.currency ? String(row.currency).trim() : undefined;
+        const incurredAt = row.incurredAt ? new Date(String(row.incurredAt)) : new Date();
+        const createdById = String(row.createdById || userId);
+        const csvId = row.id ? String(row.id).trim() : undefined;
+
+        // Parse optional JSON columns
+        let splits: { userId: string; amount: number }[] | undefined;
+        try {
+          if (row.splits) splits = JSON.parse(row.splits);
+        } catch {}
+        let payments: { userId: string; amount: number; currency?: string }[] | undefined;
+        try {
+          if (row.payments) payments = JSON.parse(row.payments);
+        } catch {}
+
+        // Duplicate detection (only in skip mode)
+        if (mode === "skip") {
+          if (csvId) {
+            const existingById = await tx.expense.findFirst({ where: { id: csvId, tripId } });
+            if (existingById) {
+              skipped.push({ row: i + 2, reason: "Expense with same id already exists", id: csvId });
+              continue;
+            }
+          }
+          const fingerprintWhere: any = {
+            tripId,
+            description,
+            amountCents: Math.round(amount * 100),
+            incurredAt,
+          };
+          const existingByFingerprint = await tx.expense.findFirst({ where: fingerprintWhere });
+          if (existingByFingerprint) {
+            skipped.push({ row: i + 2, reason: "Expense with same content already exists", id: existingByFingerprint.id });
+            continue;
+          }
+        }
+
+        const expense = await tx.expense.create({
+          data: {
+            tripId,
+            createdById,
+            description,
+            category,
+            expenseType,
+            quantity: quantity ?? 1,
+            unitPriceCents: unitPrice != null ? Math.round(unitPrice * 100) : null,
+            amountCents: Math.round(amount * 100),
+            currency: normalizeCurrency(currency || trip.baseCurrency || "EUR"),
+            incurredAt,
+          },
+        });
+
+        // Splits
+        let splitsPayload = splits;
+        if (!splitsPayload || splitsPayload.length === 0) {
+          // default: equal among participants (trip owner + members), payer is createdById
+          const members = (await tx.tripMember.findMany({ where: { tripId }, select: { userId: true } })) as any[];
+          const participantIds = Array.from(new Set([trip.ownerId, ...members.map((m) => m.userId)]));
+          const oweIds = participantIds.filter((id) => id !== createdById);
+          const participants = oweIds.length > 0 ? oweIds : [createdById];
+          const per = amount / participants.length;
+          splitsPayload = participants.map((uid) => ({ userId: uid, amount: per }));
+        }
+        const splitSum = Math.round(splitsPayload.reduce((s, sp) => s + Math.round(sp.amount * 100), 0));
+        if (splitSum !== Math.round(amount * 100)) throw new Error("Split amounts must sum to total amount");
+        await tx.expenseSplit.createMany({
+          data: splitsPayload.map((sp) => ({ expenseId: expense.id, userId: sp.userId, amountCents: Math.round(sp.amount * 100) })),
+        });
+
+        // Payments
+        let paymentsPayload = payments;
+        if (!paymentsPayload || paymentsPayload.length === 0) {
+          paymentsPayload = [{ userId: createdById, amount, currency: currency || trip.baseCurrency || "EUR" }];
+        }
+        await (tx as any).expensePayment.createMany({
+          data: paymentsPayload.map((p) => ({ expenseId: expense.id, userId: p.userId, amountCents: Math.round(p.amount * 100), currency: normalizeCurrency(p.currency || currency || trip.baseCurrency || "EUR") })),
+        });
+
+        createdIds.push(expense.id);
+      }
+    });
+
+    return res.json({ imported: createdIds.length, expenseIds: createdIds, warnings: mode === "skip" ? skipped : [] });
+  } catch (e: any) {
+    return res.status(400).json({ error: e?.message || "Failed to import CSV" });
   }
 });
 

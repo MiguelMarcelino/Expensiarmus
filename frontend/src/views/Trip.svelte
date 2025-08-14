@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { api } from '../lib/api';
+  import { api, download, fetchAuthed } from '../lib/api';
   import { currentUser } from '../lib/auth';
   
   import ExpenseItem from '../lib/components/ExpenseItem.svelte';
@@ -32,6 +32,7 @@
   let balanceUsers: { id: string; username: string }[] = [];
   let settling = false;
   let myId: string = '';
+  let importing = false;
 
   // manual form
   let description = '';
@@ -307,6 +308,43 @@
       } catch {}
     } catch (e: any) {
       showError(e.message);
+    }
+  }
+
+  async function exportTripCsv() {
+    try {
+      await download(`/trips/${tripId}/expenses/export.csv`, `${(tripName || 'trip')}-expenses.csv`);
+      showSuccess('Export started');
+    } catch (e: any) {
+      showError(e.message);
+    }
+  }
+
+  async function importTripCsv(ev: Event) {
+    const input = ev.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    const form = new FormData();
+    form.append('file', file);
+    importing = true;
+    try {
+      const res = await fetchAuthed(`/trips/${tripId}/expenses/import`, { method: 'POST', body: form });
+      const text = await res.text().catch(() => '');
+      let data: any = {};
+      if (text) { try { data = JSON.parse(text); } catch {} }
+      if (!res.ok) {
+        const msg = data?.error || data?.message || `Import failed (${res.status})`;
+        throw new Error(msg);
+      }
+      const imported = data.imported || 0;
+      showSuccess(`Imported ${imported} expenses`);
+      // Refresh expenses/activity
+      await load();
+    } catch (e: any) {
+      showError(e.message);
+    } finally {
+      importing = false;
+      input.value = '';
     }
   }
 
@@ -941,9 +979,20 @@
 <div class="grid md:grid-cols-4 lg:grid-cols-5 gap-6 mt-2">
   <div class="md:col-span-2 lg:col-span-3 space-y-4">
     <div class="rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm">
-      <div class="flex items-center gap-2 border-b border-black/5 dark:border-white/10 mb-3">
-        <button class="px-3 py-2 text-sm rounded-t-lg {activeTab==='expenses' ? 'bg-indigo-600 text-white' : ''}" on:click={() => activeTab='expenses'}>Expenses</button>
-        <button class="px-3 py-2 text-sm rounded-t-lg {activeTab==='activity' ? 'bg-indigo-600 text-white' : ''}" on:click={() => activeTab='activity'}>Activity</button>
+      <div class="flex items-center justify-between border-b border-black/5 dark:border-white/10 mb-3">
+        <div class="flex items-center gap-2">
+          <button class="px-3 py-2 text-sm rounded-t-lg {activeTab==='expenses' ? 'bg-indigo-600 text-white' : ''}" on:click={() => activeTab='expenses'}>Expenses</button>
+          <button class="px-3 py-2 text-sm rounded-t-lg {activeTab==='activity' ? 'bg-indigo-600 text-white' : ''}" on:click={() => activeTab='activity'}>Activity</button>
+        </div>
+        {#if canEditTrip}
+          <div class="flex items-center gap-2">
+            <button class="px-3 py-1.5 rounded bg-gray-900 text-white text-sm dark:bg-gray-200 dark:text-gray-900" on:click={exportTripCsv} title="Export CSV">Export</button>
+            <label class="px-3 py-1.5 rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 text-sm cursor-pointer" title="Import CSV">
+              {importing ? 'Importing…' : 'Import'}
+              <input type="file" accept=".csv,text/csv" class="hidden" on:change={importTripCsv} />
+            </label>
+          </div>
+        {/if}
       </div>
       {#if activeTab === 'expenses'}
         {#if expenses.length === 0}
