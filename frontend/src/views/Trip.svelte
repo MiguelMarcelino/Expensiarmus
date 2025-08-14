@@ -6,7 +6,6 @@
   import ExpenseItem from '../lib/components/ExpenseItem.svelte';
   import BalancesCard from '../lib/components/BalancesCard.svelte';
   import ActivityList from '../lib/components/ActivityList.svelte';
-  import AddMember from '../lib/components/AddMember.svelte';
   import AddMemberSpotlight from '../lib/components/AddMemberSpotlight.svelte';
   import type { Member, Expense, ActivityEvent, SplitMode, PaymentMode, User } from '../lib/types';
   import { centsToString } from '../lib/money';
@@ -87,8 +86,6 @@
 
   // AI form
   let aiInput = '';
-
-  // member form moved into AddMember component
 
   // money helper imported from ../lib/money
   function sumStrings(obj: Record<string, string>): number {
