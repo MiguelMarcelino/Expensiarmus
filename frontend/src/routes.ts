@@ -5,6 +5,7 @@ import Register from './views/Register.svelte';
 import Dashboard from './views/Dashboard.svelte';
 import Trip from './views/Trip.svelte';
 import Profile from './views/Profile.svelte';
+import AddExpense from './views/AddExpense.svelte';
 
 const routes = {
   '/': Landing,
@@ -12,6 +13,7 @@ const routes = {
   '/register': Register,
   '/dashboard': Dashboard,
   '/trip/:id': Trip,
+  '/trip/:id/add-expense': AddExpense,
   '/profile': Profile,
 } as any;
 

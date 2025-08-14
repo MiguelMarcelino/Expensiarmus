@@ -7,6 +7,7 @@
   import BalancesCard from '../lib/components/BalancesCard.svelte';
   import ActivityList from '../lib/components/ActivityList.svelte';
   import AddMember from '../lib/components/AddMember.svelte';
+  import AddMemberSpotlight from '../lib/components/AddMemberSpotlight.svelte';
   import type { Member, Expense, ActivityEvent, SplitMode, PaymentMode, User } from '../lib/types';
   import { centsToString } from '../lib/money';
   import { showError, showSuccess } from '../lib/alerts';
@@ -33,6 +34,7 @@
   let settling = false;
   let myId: string = '';
   let importing = false;
+  let showAddMember = false;
 
   // manual form
   let description = '';
@@ -883,8 +885,6 @@
   }
 </script>
 
-<!-- Alerts are shown globally via App.svelte -->
-
 <!-- Back to dashboard -->
 <div class="mb-3">
   <a href="#/dashboard" class="inline-flex items-center gap-2 rounded-full border border-black/5 dark:border-white/10 bg-white/70 dark:bg-gray-800/60 backdrop-blur px-3 py-1.5 shadow-sm hover:shadow transition">
@@ -977,7 +977,7 @@
 </section>
 
 <div class="grid md:grid-cols-4 lg:grid-cols-5 gap-6 mt-2">
-  <div class="md:col-span-2 lg:col-span-3 space-y-4">
+  <div class="md:col-span-4 lg:col-span-5 space-y-4">
     <div class="rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm">
       <div class="flex items-center justify-between border-b border-black/5 dark:border-white/10 mb-3">
         <div class="flex items-center gap-2">
@@ -1015,155 +1015,7 @@
       {/if}
     </div>
   </div>
-  <div class="md:col-span-2 lg:col-span-2 space-y-4">
-    <div class="rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm space-y-4">
-      <h3 class="font-semibold">Add expense (manual)</h3>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <input class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" placeholder="Description" bind:value={description} />
-        <input type="number" min="0" step="0.01" class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" placeholder="Amount" bind:value={amount} on:change={onAmountChange} />
-      </div>
-
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
-        <div class="flex items-center gap-2">
-          <input type="datetime-local" class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={incurredAtInput} bind:this={incurredAtEl} />
-          <button type="button" class="px-3 py-2 rounded-lg border border-black/5 dark:border-white/10 bg-white/70 dark:bg-gray-800/60" on:click={() => { try { (incurredAtEl as any)?.showPicker?.(); } catch {} incurredAtEl?.focus(); }} aria-label="Pick date and time">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-          </button>
-        </div>
-        <div>
-          <input class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" placeholder="Category (optional)" bind:value={category} list="category-options" />
-          <datalist id="category-options">
-            {#each predefinedCategories as c}
-              <option value={c}></option>
-            {/each}
-          </datalist>
-        </div>
-      </div>
-
-      <div>
-        <label class="text-xs opacity-70 block mb-1" for="payer-select">Payer</label>
-        <select id="payer-select" class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={payerUserId} on:change={onPayerChange}>
-          {#each payerOptions as u}
-            <option value={u.id}>{u.username}</option>
-          {/each}
-        </select>
-      </div>
-
-      
-      <div>
-        <label class="text-xs opacity-70 block mb-1" for="expense-currency-select">Expense currency</label>
-        <select id="expense-currency-select" class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={expenseCurrency}>
-          {#each currencies as c}
-            <option value={c}>{c}</option>
-          {/each}
-        </select>
-      </div>
-
-      <div class="mt-3">
-        <div class="mb-2">
-          <div class="text-sm font-semibold mb-1">Split among</div>
-          <div class="flex flex-wrap gap-2">
-            {#each splitCandidates as u}
-              {#key selectedSplitUserIdMap[u.id]}
-                <button type="button"
-                  aria-pressed={!!selectedSplitUserIdMap[u.id]}
-                  class={`inline-flex items-center gap-1 text-sm rounded-full px-3 py-1.5 transition border
-                    ${selectedSplitUserIdMap[u.id]
-                      ? 'bg-indigo-600 text-white border-indigo-600 shadow'
-                      : 'bg-white/80 dark:bg-gray-800/60 text-gray-800 dark:text-gray-200 border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-gray-700/40'}`}
-                  on:click={() => onToggleSplitUser(u.id)}>
-                  {#if selectedSplitUserIdMap[u.id]}
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
-                  {/if}
-                  <span>{u.username}</span>
-                </button>
-              {/key}
-            {/each}
-          </div>
-          </div>
-          <div class="flex items-center justify-between mb-1">
-          <div class="text-sm font-semibold">Who pays how much</div>
-          <select class="text-xs p-1 rounded-md bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10" bind:value={paymentMode} on:change={onPaymentModeChange}>
-            <option value="payer">Payer covers all</option>
-            <option value="equal">Split equally</option>
-            <option value="custom_percentages">Custom percentages</option>
-            <option value="custom_amounts">Custom amounts</option>
-          </select>
-          </div>
-          {#if paymentMode === 'custom_percentages' || paymentMode === 'custom_amounts'}
-            <div class="space-y-1.5">
-            {#each payerOptions as u}
-              <div class="flex items-center gap-2 py-0.5 min-w-0">
-                <span class="w-28 text-sm opacity-80">{u.username}</span>
-                {#if paymentMode === 'custom_percentages'}
-                  <div class="flex items-center gap-2 flex-1 min-w-0">
-                    <input type="number" min="0" max="100" step="0.01" class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidPctByUserId[u.id]} on:input={(e) => onPaidPercentInput(u.id, (e.target as HTMLInputElement).value)} />
-                    <span class="text-sm opacity-70">%</span>
-                    <div class="w-full min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{paidByUserId[u.id]}</div>
-                    <select class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidCurrencyByUserId[u.id]}>
-                      {#each currencies as c}
-                        <option value={c}>{c}</option>
-                      {/each}
-                    </select>
-                  </div>
-                {:else}
-                  <div class="flex items-center gap-2 flex-1 min-w-0">
-                    <input type="number" min="0" step="0.01" class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidByUserId[u.id]} on:input={(e) => paidByUserId[u.id] = (e.target as HTMLInputElement).value} />
-                    <select class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidCurrencyByUserId[u.id]}>
-                      {#each currencies as c}
-                        <option value={c}>{c}</option>
-                      {/each}
-                    </select>
-                  </div>
-                {/if}
-              </div>
-            {/each}
-            </div>
-          {/if}
-          <div class="text-xs opacity-70 mt-1">Total payments: ${sumStrings(paidByUserId).toFixed(2)}</div>
-          {#if Number(amount) > 0}
-            <div class="mt-2 space-y-2">
-              <div class="text-xs opacity-70">Who pays</div>
-              <div class="w-full h-3 rounded-full overflow-hidden border border-black/5 dark:border-white/10 bg-white/60 dark:bg-gray-800/50">
-                <div class="flex h-full w-full">
-                  {#each paysSegments as s}
-                    <div title={`${s.name} ${s.pct.toFixed(0)}%`} style={`width:${s.pct}%;background-color:${s.color}`}></div>
-                  {/each}
-                </div>
-              </div>
-              <div class="flex flex-wrap gap-2">
-                {#each paysSegments as s}
-                  <div class="inline-flex items-center gap-1 text-xs opacity-80">
-                    <span class="inline-block w-2.5 h-2.5 rounded-sm" style={`background-color:${s.color}`}></span>
-                    <span class="truncate max-w-[8rem]">{s.name}</span>
-                    <span class="tabular-nums">{s.pct.toFixed(0)}%</span>
-                  </div>
-                {/each}
-              </div>
-            </div>
-          {/if}
-        </div>
-
-      
-
-      <button class="w-full py-2.5 rounded-lg bg-indigo-600 text-white disabled:opacity-60 disabled:cursor-not-allowed" on:click={addExpense} disabled={addDisabled}>Add</button>
-    </div>
-
-    <div class="rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm space-y-3">
-      <h3 class="font-semibold">AI expense entry</h3>
-      <textarea class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" rows="3" placeholder="Describe the expense..." bind:value={aiInput}></textarea>
-      <button class="w-full py-2 rounded-lg bg-purple-600 text-white disabled:opacity-60 disabled:cursor-not-allowed" on:click={aiParse} disabled={!aiInput.trim()}>Parse & Add</button>
-      <p class="text-xs opacity-70">Example: "I want to register an expense for my trip to Japan. I just bought two flights at 1500 each and need you to add that to my Japan trip."</p>
-    </div>
-
-    <div class="rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm space-y-3">
-      <AddMember
-        {tripId}
-        on:added={async () => { try { const res = await api(`/trips/${tripId}/members`); members = res.members as Member[]; showSuccess('Member added.'); await loadActivity(); } catch (e: any) { showError(e.message); } }}
-        on:error={(e) => { showError(e.detail); }}
-      />
-    </div>
-  </div>
+  <div class="md:col-span-2 lg:col-span-2 space-y-4 hidden"></div>
 </div>
 
 {#if showEditor && editing}
@@ -1280,3 +1132,28 @@
     </div>
   </div>
 {/if}
+
+<!-- Floating add expense button -->
+<a href={`#/trip/${tripId}/add-expense`} class="fixed bottom-6 right-6 z-30 inline-flex items-center justify-center h-14 w-14 rounded-full bg-indigo-600 text-white shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" title="Add expense" aria-label="Add expense">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+  <span class="sr-only">Add expense</span>
+</a>
+
+<!-- Floating add member button -->
+<button type="button" class="fixed bottom-24 right-6 z-30 inline-flex items-center justify-center h-14 w-14 rounded-full bg-gray-900 text-white shadow-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 dark:bg-gray-200 dark:text-gray-900 dark:hover:bg-gray-100" title="Add member" aria-label="Add member" on:click={() => showAddMember = true}>
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+    <circle cx="9" cy="7" r="4"/>
+    <line x1="19" y1="8" x2="19" y2="14"/>
+    <line x1="16" y1="11" x2="22" y2="11"/>
+  </svg>
+  <span class="sr-only">Add member</span>
+  </button>
+
+<!-- Add Member Spotlight Overlay -->
+<AddMemberSpotlight
+  {tripId}
+  open={showAddMember}
+  on:added={async () => { try { const res = await api(`/trips/${tripId}/members`); members = res.members as Member[]; showSuccess('Member added.'); await loadActivity(); } catch (e: any) { showError(e.message); } finally { showAddMember = false; } }}
+  on:close={() => showAddMember = false}
+/>
