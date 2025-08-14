@@ -1,4 +1,4 @@
-export type User = { id: string; username: string; email?: string | null };
+export type User = { id: string; username: string; email?: string | null; avatarUrl?: string | null };
 
 export type Member = {
   user: { id: string; username: string; joinedAt?: string };

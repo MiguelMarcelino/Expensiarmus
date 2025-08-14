@@ -6,6 +6,7 @@
   import { onMount } from 'svelte';
   import { alert } from './lib/alerts';
   import AlertBanner from './lib/components/AlertBanner.svelte';
+  import { API_BASE } from './lib/api';
 
   let user: User | null = null;
   const unsubscribe = currentUser.subscribe((u) => (user = u));
@@ -20,7 +21,20 @@
     <a href={user ? '#/dashboard' : '#/'} class="font-semibold">ExpensiArmus</a>
     <div class="flex items-center gap-3">
       {#if user}
-        <span class="text-sm opacity-80">{user.username}</span>
+        <a href="#/profile" class="flex items-center gap-2 group">
+          {#if user.avatarUrl}
+            <img
+              src={(user.avatarUrl.startsWith('http') ? user.avatarUrl : `${API_BASE}${user.avatarUrl}`)}
+              alt="Profile"
+              class="h-7 w-7 rounded-full object-cover border border-black/10 dark:border-white/10"
+            />
+          {:else}
+            <div class="h-7 w-7 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-semibold">
+              {user.username.charAt(0).toUpperCase()}
+            </div>
+          {/if}
+          <span class="text-sm opacity-80 group-hover:underline">{user.username}</span>
+        </a>
         <button class="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-700" on:click={logout}>Logout</button>
       {:else}
         <a href="#/login" class="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-700">Login</a>

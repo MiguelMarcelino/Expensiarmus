@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import path from "path";
 import { config } from "./config";
 import authRoutes from "./routes/auth";
 import tripRoutes from "./routes/trips";
@@ -12,6 +13,8 @@ import { scheduleDailyRatesUpdate } from "./utils/ratesUpdater";
 const app = express();
 app.use(cors());
 app.use(express.json());
+// Serve uploaded avatars
+app.use("/uploads", express.static(path.resolve(__dirname, "..", "uploads")));
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
