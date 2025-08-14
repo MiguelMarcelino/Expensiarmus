@@ -2,13 +2,14 @@
   import { onMount } from 'svelte';
   import { api } from '../lib/api';
   import { currentUser } from '../lib/auth';
-  import { fade, fly } from 'svelte/transition';
+  
   import ExpenseItem from '../lib/components/ExpenseItem.svelte';
   import BalancesCard from '../lib/components/BalancesCard.svelte';
   import ActivityList from '../lib/components/ActivityList.svelte';
   import AddMember from '../lib/components/AddMember.svelte';
   import type { Member, Expense, ActivityEvent, SplitMode, PaymentMode, User } from '../lib/types';
   import { centsToString } from '../lib/money';
+  import { showError, showSuccess } from '../lib/alerts';
 
   export let params: { id: string };
   let tripId: string = '';
@@ -24,8 +25,6 @@
   $: canEditTrip = !!me && ownerId && me.id === ownerId;
   let editingTripName = false;
   let editTripName = '';
-  let error: string | null = null;
-  let success: string | null = null;
   let baseCurrency: string = 'EUR';
   let serverBalances: Record<string, number> | null = null;
   let serverTransfers: { from: string; to: string; amountCents: number }[] | null = null;
@@ -252,7 +251,6 @@
   })();
 
   async function load() {
-    error = null;
     try {
       const [membersRes, expensesRes, balancesRes] = await Promise.all([
         api(`/trips/${tripId}/members`),
@@ -308,7 +306,7 @@
         baseCurrency = (b?.baseCurrency || baseCurrency).toUpperCase();
       } catch {}
     } catch (e: any) {
-      error = e.message;
+      showError(e.message);
     }
   }
 
@@ -343,15 +341,14 @@
   }
 
   async function addExpense() {
-    error = null; success = null;
     const amountNum = Number(amount);
-    if (!tripId) { error = 'No trip selected.'; return; }
-    if (!description.trim() || !(amountNum > 0)) { error = 'Enter description and a positive amount.'; return; }
+    if (!tripId) { showError('No trip selected.'); return; }
+    if (!description.trim() || !(amountNum > 0)) { showError('Enter description and a positive amount.'); return; }
     // Ensure allocations reflect latest amount/payer/modes just before submit
     recalcSplits();
     recalcPayments();
     const totalsError = validTotals();
-    if (totalsError) { error = totalsError; return; }
+    if (totalsError) { showError(totalsError); return; }
     try {
       const splits = Object.entries(splitByUserId)
         .filter(([userId]) => selectedSplitUserIdMap[userId])
@@ -380,13 +377,12 @@
       } catch {}
       description = ''; amount = ''; category = ''; expenseType = '';
       incurredAtInput = nowLocalDatetime();
-      success = 'Expense added successfully.';
-      setTimeout(() => { success = null; }, 3000);
+      showSuccess('Expense added successfully.');
       
       // Refresh activity to show the new expense event
       await loadActivity();
     } catch (e: any) {
-      error = e.message;
+      showError(e.message);
     }
   }
 
@@ -414,11 +410,10 @@
         serverTransfers = (b && Array.isArray(b.transfers) && b.transfers.length > 0) ? b.transfers : null;
         baseCurrency = (b?.baseCurrency || baseCurrency).toUpperCase();
       } catch {}
-      success = 'Expense deleted.';
-      setTimeout(() => { success = null; }, 2000);
+      showSuccess('Expense deleted.');
       await loadActivity();
     } catch (e: any) {
-      error = e.message;
+      showError(e.message);
     }
   }
   function cancelDelete() { confirmDeleteId = null; }
@@ -568,17 +563,15 @@
   }
 
   async function aiParse() {
-    error = null; success = null;
     try {
       const res = await api('/ai/parse', { method: 'POST', body: JSON.stringify({ input: aiInput }) });
       if (res.expense?.tripId === tripId) {
         upsertExpense(res.expense as Expense);
-        success = 'Expense added from AI.';
-        setTimeout(() => { success = null; }, 3000);
+        showSuccess('Expense added from AI.');
       }
       aiInput = '';
     } catch (e: any) {
-      error = e.message;
+      showError(e.message);
     }
   }
 
@@ -640,7 +633,7 @@
 
   async function settleUp() {
     if (!tripId || !me) return;
-    error = null; success = null; settling = true;
+    settling = true;
     try {
       const res = await api(`/trips/${tripId}/settle`, { method: 'POST' });
       if (res.expense) {
@@ -655,11 +648,10 @@
         serverTransfers = (b && Array.isArray(b.transfers) && b.transfers.length > 0) ? b.transfers : null;
         baseCurrency = (b?.baseCurrency || baseCurrency).toUpperCase();
       } catch {}
-      success = 'Settlement recorded.';
-      setTimeout(() => { success = null; }, 2500);
+      showSuccess('Settlement recorded.');
       await loadActivity();
     } catch (e: any) {
-      error = e.message;
+      showError(e.message);
     } finally {
       settling = false;
     }
@@ -684,10 +676,9 @@
       await api(`/trips/${tripId}`, { method: 'PUT', body: JSON.stringify({ name: newName }) });
       tripName = newName;
       editingTripName = false;
-      success = 'Trip renamed.';
-      setTimeout(() => { success = null; }, 2000);
+      showSuccess('Trip renamed.');
     } catch (e: any) {
-      error = e.message;
+      showError(e.message);
     }
   }
 
@@ -818,9 +809,8 @@
   }
 
   async function saveExpenseEdits() {
-    error = null; success = null;
     const err = editorTotalsError();
-    if (err) { error = err; return; }
+    if (err) { showError(err); return; }
     if (!editing) return;
     try {
       const payments = Object.entries(editPaidByUserId)
@@ -844,33 +834,18 @@
         serverTransfers = (b && Array.isArray(b.transfers) && b.transfers.length > 0) ? b.transfers : null;
         baseCurrency = (b?.baseCurrency || baseCurrency).toUpperCase();
       } catch {}
-      success = 'Expense updated.';
-      setTimeout(() => { success = null; }, 2500);
+      showSuccess('Expense updated.');
       closeEditor();
       
       // Refresh activity to show the updated expense
       await loadActivity();
     } catch (e: any) {
-      error = e.message;
+      showError(e.message);
     }
   }
 </script>
 
-{#if error}
-  <div class="sticky top-2 z-10">
-    <div class="rounded-xl border border-red-500/30 bg-red-500/10 text-red-800 dark:text-red-100 backdrop-blur-sm px-4 py-3 shadow">
-      {error}
-    </div>
-  </div>
-{/if}
-{#if success}
-  <div class="sticky top-2 z-10" in:fly={{ y: -8, duration: 250 }} out:fade={{ duration: 150 }}>
-    <div class="rounded-xl border border-green-500/30 bg-green-500/15 text-green-800 dark:text-green-100 backdrop-blur-sm px-4 py-3 shadow flex items-center gap-2">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
-      <span>{success}</span>
-    </div>
-  </div>
-{/if}
+<!-- Alerts are shown globally via App.svelte -->
 
 <!-- Back to dashboard -->
 <div class="mb-3">
@@ -1135,8 +1110,8 @@
     <div class="rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm space-y-3">
       <AddMember
         {tripId}
-        on:added={async () => { try { const res = await api(`/trips/${tripId}/members`); members = res.members as Member[]; success = 'Member added.'; setTimeout(() => success = null, 3000); await loadActivity(); } catch (e: any) { error = e.message; } }}
-        on:error={(e) => { error = e.detail; }}
+        on:added={async () => { try { const res = await api(`/trips/${tripId}/members`); members = res.members as Member[]; showSuccess('Member added.'); await loadActivity(); } catch (e: any) { showError(e.message); } }}
+        on:error={(e) => { showError(e.detail); }}
       />
     </div>
   </div>
