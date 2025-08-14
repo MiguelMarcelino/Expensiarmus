@@ -14,8 +14,6 @@
   let tripId: string = '';
   $: tripId = params?.id || '';
 
-  // Types moved to ../lib/types
-
   let me: User | null = null;
   currentUser.subscribe((u) => (me = u));
 
