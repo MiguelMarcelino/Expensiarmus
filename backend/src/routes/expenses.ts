@@ -20,6 +20,16 @@ const upload = multer({
   },
 });
 
+// Multer for receipts (images)
+const receiptUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) cb(null, true);
+    else cb(new Error("Only image uploads are allowed"));
+  },
+});
+
 function toCents(amount: number): number {
   return Math.round(amount * 100);
 }
@@ -351,6 +361,111 @@ router.post("/expenses", async (req: AuthenticatedRequest, res) => {
           createdBy: { select: { id: true, username: true } },
         } as any,
       });
+      return withRelations;
+    });
+
+    res.json({ expense: created });
+  } catch (e: any) {
+    const message = e?.message || "Failed to create expense";
+    const bad = message.includes("must sum to total amount");
+    return res.status(bad ? 400 : 500).json({ error: message });
+  }
+});
+
+// Create expense with optional receipt upload via multipart/form-data
+router.post("/expenses/with-receipt", receiptUpload.single("receipt"), async (req: AuthenticatedRequest, res) => {
+  const schema = z.object({
+    tripId: z.string(),
+    description: z.string().min(1),
+    category: z.string().optional(),
+    expenseType: z.string().optional(),
+    quantity: z.string().optional(),
+    unitPrice: z.string().optional(),
+    amount: z.string(),
+    currency: z.string().length(3).optional(),
+    incurredAt: z.string().datetime().optional(),
+    payerUserId: z.string().optional(),
+    splits: z.string().optional(), // JSON string
+    payments: z.string().optional(), // JSON string
+  });
+  const bodyObj: any = req.body || {};
+  const parse = schema.safeParse(bodyObj);
+  if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
+  const form = parse.data;
+
+  const trip = await prisma.trip.findFirst({
+    where: { id: form.tripId, OR: [{ ownerId: req.user!.id }, { members: { some: { userId: req.user!.id } } }] },
+  });
+  if (!trip) return res.status(404).json({ error: "Trip not found or access denied" });
+
+  const amount = Number(form.amount);
+  if (!(amount > 0)) return res.status(400).json({ error: "Amount must be positive" });
+  const amountCents = Math.round(amount * 100);
+  const incurredAt = form.incurredAt ? new Date(form.incurredAt) : new Date();
+  const expenseCurrency = normalizeCurrency(form.currency || "EUR");
+  let splits: { userId: string; amount: number }[] | undefined;
+  let payments: { userId: string; amount: number; currency?: string }[] | undefined;
+  try { if (form.splits) splits = JSON.parse(form.splits); } catch {}
+  try { if (form.payments) payments = JSON.parse(form.payments); } catch {}
+
+  const file = req.file;
+  const receiptMime = file?.mimetype;
+  const receiptData = file?.buffer;
+
+  try {
+    const created = await prisma.$transaction(async (tx) => {
+      const expense = await tx.expense.create({
+        data: {
+          tripId: form.tripId,
+          createdById: req.user!.id,
+          description: form.description,
+          category: form.category,
+          expenseType: form.expenseType,
+          quantity: form.quantity != null && form.quantity !== '' ? Number(form.quantity) : 1,
+          unitPriceCents: form.unitPrice != null && form.unitPrice !== '' ? Math.round(Number(form.unitPrice) * 100) : null,
+          amountCents,
+          currency: expenseCurrency,
+          incurredAt,
+          ...(receiptData && receiptMime ? { receiptData, receiptMime } : {}),
+        },
+      });
+
+      // Splits
+      let splitsPayload = splits;
+      if (!splitsPayload || splitsPayload.length === 0) {
+        const members = (await tx.tripMember.findMany({ where: { tripId: form.tripId }, select: { userId: true, joinedAt: true } as any })) as any[];
+        const eligibleMemberIds = members
+          .filter((m: any) => !m.joinedAt || new Date(m.joinedAt) <= incurredAt)
+          .map((m) => m.userId);
+        const allParticipantIds = Array.from(new Set([trip.ownerId, ...eligibleMemberIds]));
+        const payerId = form.payerUserId ?? req.user!.id;
+        const oweIds = allParticipantIds.filter((id) => id !== payerId);
+        const participants = oweIds.length > 0 ? oweIds : [payerId];
+        const per = amount / participants.length;
+        splitsPayload = participants.map((uid) => ({ userId: uid, amount: per }));
+      }
+      const splitSum = Math.round(splitsPayload.reduce((sum, s) => sum + Math.round(s.amount * 100), 0));
+      if (splitSum !== amountCents) throw new Error("Split amounts must sum to total amount");
+      await tx.expenseSplit.createMany({ data: splitsPayload.map((s) => ({ expenseId: expense.id, userId: s.userId, amountCents: Math.round(s.amount * 100) })) });
+
+      // Payments
+      let paymentsPayload = payments;
+      if (!paymentsPayload || paymentsPayload.length === 0) {
+        const fallbackPayer = form.payerUserId ?? req.user!.id;
+        paymentsPayload = [{ userId: fallbackPayer, amount, currency: expenseCurrency }];
+      }
+      // Validate payments sum
+      let convertedSum = 0;
+      for (const p of paymentsPayload) {
+        const fromCur = normalizeCurrency(p.currency || expenseCurrency);
+        const cents = Math.round(p.amount * 100);
+        const converted = await convertCents(cents, fromCur, expenseCurrency, incurredAt);
+        convertedSum += converted;
+      }
+      if (convertedSum !== amountCents) throw new Error("Payment amounts must sum to total amount (after conversion)");
+      await (tx as any).expensePayment.createMany({ data: paymentsPayload.map((p) => ({ expenseId: expense.id, userId: p.userId, amountCents: Math.round(p.amount * 100), currency: normalizeCurrency(p.currency || expenseCurrency) })) });
+
+      const withRelations = await tx.expense.findUnique({ where: { id: expense.id }, include: { splits: true, payments: true, createdBy: { select: { id: true, username: true } } } as any });
       return withRelations;
     });
 
