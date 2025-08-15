@@ -137,6 +137,7 @@
     } else if (paymentMode === 'custom_percentages') {
       paidByUserId = allocateByPercent(total, paidPctByUserId, ids);
     }
+    // Ensure all users have currency set
     for (const id of ids) { 
       if (!paidCurrencyByUserId[id]) paidCurrencyByUserId[id] = expenseCurrency; 
     }
@@ -162,16 +163,85 @@
 
   function onAmountChange() {
     const total = Number(amount) || 0;
-    const ids = splitParticipants.map((u) => u.id);
-    if (ids.length > 0) {
-      const per = total / ids.length || 0;
-      splitByUserId = Object.fromEntries(ids.map((id) => [id, per.toFixed(2)]));
-    }
+    
+    // Recalculate payments based on current mode
     recalcPayments();
+    
+    // For splits, maintain existing distribution if in percentage mode
+    // or equal distribution in equal mode, but recalculate for new total
+    if (splitMode === 'equal') {
+      recalcSplits();
+    } else if (splitMode === 'custom_percentages') {
+      // Keep existing percentages, recalculate amounts
+      recalcSplits();
+    } else {
+      // For custom amounts, try to maintain proportions if possible
+      const ids = splitParticipants.map((u) => u.id);
+      const currentSum = sumStrings(Object.fromEntries(Object.entries(splitByUserId).filter(([id]) => selectedSplitUserIdMap[id])));
+      
+      if (currentSum > 0 && total > 0) {
+        // Scale existing splits proportionally
+        const scaleFactor = total / currentSum;
+        for (const id of ids) {
+          if (selectedSplitUserIdMap[id]) {
+            const currentAmount = Number(splitByUserId[id] || '0');
+            splitByUserId[id] = (currentAmount * scaleFactor).toFixed(2);
+          }
+        }
+      } else {
+        // Fall back to equal distribution
+        if (ids.length > 0) {
+          const per = total / ids.length || 0;
+          splitByUserId = Object.fromEntries(ids.map((id) => [id, per.toFixed(2)]));
+        }
+      }
+    }
   }
 
   function onPayerChange() {
-    recalcPayments();
+    // Store current payment mode to maintain it after recalculation
+    const currentMode = paymentMode;
+    
+    // If we're in payer mode, just recalculate normally
+    if (currentMode === 'payer') {
+      recalcPayments();
+    } else {
+      // For other modes, we need to maintain the same payment distribution
+      // but adjust to ensure totals match
+      const total = Number(amount) || 0;
+      const ids = payerOptions.map((u) => u.id);
+      
+      // Keep existing percentages/amounts and just normalize to total
+      if (currentMode === 'equal') {
+        // Redistribute equally among all payers
+        const equalPct = ids.length > 0 ? (100 / ids.length) : 0;
+        paidPctByUserId = Object.fromEntries(ids.map((id) => [id, equalPct.toFixed(2)]));
+        paidByUserId = allocateByPercent(total, paidPctByUserId, ids);
+      } else if (currentMode === 'custom_percentages') {
+        // Keep existing percentages and recalculate amounts
+        paidByUserId = allocateByPercent(total, paidPctByUserId, ids);
+      } else if (currentMode === 'custom_amounts') {
+        // Normalize existing amounts to sum to total
+        const currentSum = sumStrings(paidByUserId);
+        if (currentSum > 0) {
+          const scaleFactor = total / currentSum;
+          for (const id of ids) {
+            const currentAmount = Number(paidByUserId[id] || '0');
+            paidByUserId[id] = (currentAmount * scaleFactor).toFixed(2);
+          }
+        } else {
+          // Fall back to payer pays all if no existing amounts
+          paidByUserId = Object.fromEntries(ids.map((id) => [id, id === payerUserId ? total.toFixed(2) : '0']));
+        }
+      }
+      
+      // Ensure all users have currency set after payment adjustments
+      for (const id of ids) { 
+        if (!paidCurrencyByUserId[id]) paidCurrencyByUserId[id] = expenseCurrency; 
+      }
+    }
+    
+    // Update split participants (exclude new payer from owing)
     const allUsers = members.length > 0 ? members.map((m) => m.user) : (me ? [{ id: me.id, username: me.username }] : []);
     const participantIds = allUsers.filter((u) => u.id !== payerUserId).map((u) => u.id);
     selectedSplitUserIdMap = Object.fromEntries(participantIds.map((id) => [id, true]));

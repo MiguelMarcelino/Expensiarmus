@@ -91,6 +91,14 @@
       }
       const e = expenseRes.expense as Expense;
       loadedExpense = e;
+      
+      // Prevent editing settlements
+      if (e.expenseType === 'settlement') {
+        showError('Settlements cannot be edited. You can only delete them.');
+        window.location.hash = `#/trip/${tripId}`;
+        return;
+      }
+      
       description = e.description || '';
       amount = (e.amountCents / 100).toFixed(2);
       category = e.category || '';

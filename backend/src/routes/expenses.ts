@@ -524,6 +524,11 @@ router.put("/expenses/:id", async (req: AuthenticatedRequest, res) => {
   const existing = await prisma.expense.findUnique({ where: { id: expenseId } });
   if (!existing) return res.status(404).json({ error: "Expense not found" });
 
+  // Prevent editing settlements
+  if (existing.expenseType === 'settlement') {
+    return res.status(400).json({ error: "Settlements cannot be edited. You can only delete them." });
+  }
+
   // Permission: user must be owner or trip member
   const trip = await prisma.trip.findFirst({
     where: { id: existing.tripId, OR: [{ ownerId: req.user!.id }, { members: { some: { userId: req.user!.id } } }] },

@@ -566,6 +566,7 @@ router.post("/trips/:tripId/settle", async (req: AuthenticatedRequest, res) => {
         tripId,
         createdById: userId,
         description: 'Settlement',
+        expenseType: 'settlement',
         amountCents: Math.round(totalAmountCents),
         currency: baseCurrency,
         incurredAt: now,
