@@ -4,26 +4,12 @@ import { prisma } from "../prisma";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import bcrypt from "bcrypt";
 import multer from "multer";
-import fs from "fs";
-import path from "path";
 
 const router = Router();
 
-// Multer setup for avatar uploads
-const uploadsDir = path.resolve(__dirname, "..", "..", "uploads");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+// Multer setup: in-memory for avatar uploads
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, uploadsDir),
-    filename: (req, file, cb) => {
-      const ext = path.extname(file.originalname) || ".png";
-      const safeExt = ext.substring(0, 10);
-      const name = `${(req as AuthenticatedRequest).user?.id || "user"}-${Date.now()}${safeExt}`;
-      cb(null, name);
-    },
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   fileFilter: (_req, file, cb) => {
     if (file.mimetype.startsWith("image/")) cb(null, true);
@@ -162,11 +148,21 @@ router.post("/me/avatar", upload.single("avatar"), async (req: AuthenticatedRequ
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
-  // Store as /uploads/<filename>
-  const publicPath = `/uploads/${req.file.filename}`;
+  // Save into DB: bytes + mime, and set avatarUrl to public DB-backed endpoint
+  const userId = req.user.id;
+  const mime = req.file.mimetype || "application/octet-stream";
+  const buffer = req.file.buffer;
+  if (!buffer || buffer.length === 0) {
+    return res.status(400).json({ error: "Empty file" });
+  }
+
   const updated = await prisma.user.update({
-    where: { id: req.user.id },
-    data: { avatarUrl: publicPath },
+    where: { id: userId },
+    data: {
+      avatarMime: mime,
+      avatarData: buffer,
+      avatarUrl: `/avatars/${userId}`,
+    },
     select: { id: true, username: true, email: true, avatarUrl: true, firstName: true, lastName: true },
   });
   return res.json({ user: updated });

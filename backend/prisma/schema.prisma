@@ -16,6 +16,8 @@ model User {
   passwordHash String
   createdAt    DateTime         @default(now())
   avatarUrl    String?
+  avatarMime   String?
+  avatarData   Bytes?
 
   tripsOwned   Trip[]           @relation("TripOwner")
   memberships  TripMember[]

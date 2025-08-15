@@ -3,6 +3,7 @@ import cors from "cors";
 import path from "path";
 import { config } from "./config";
 import authRoutes from "./routes/auth";
+import publicRoutes from "./routes/public";
 import tripRoutes from "./routes/trips";
 import expenseRoutes from "./routes/expenses";
 import aiRoutes from "./routes/ai";
@@ -13,10 +14,13 @@ import { scheduleDailyRatesUpdate } from "./utils/ratesUpdater";
 const app = express();
 app.use(cors());
 app.use(express.json());
-// Serve uploaded avatars
+// Back-compat: serve existing uploaded files if any
 app.use("/uploads", express.static(path.resolve(__dirname, "..", "uploads")));
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
+
+// Public routes (no auth required)
+app.use(publicRoutes);
 
 app.use("/auth", authRoutes);
 app.use(requireAuth);
