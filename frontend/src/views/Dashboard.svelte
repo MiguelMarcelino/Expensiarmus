@@ -78,7 +78,7 @@
           <div class="flex items-start justify-between gap-4">
             <div>
               <div class="text-sm opacity-70">Welcome back</div>
-              <h2 class="text-2xl md:text-3xl font-extrabold tracking-tight">Your balances</h2>
+              <h2 class="text-2xl md:text-3xl font-extrabold tracking-tight">{me?.firstName?.trim() || me?.username || 'Your balances'}</h2>
               <div class="mt-3 flex flex-wrap items-center gap-2 text-xs">
                 <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-500/10 text-green-700 dark:text-green-300 border border-green-500/20">
                   You're owed <strong class="tabular-nums ml-1">${centsToString(totalOwedCents)}</strong>

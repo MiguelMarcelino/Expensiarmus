@@ -86,7 +86,7 @@ router.get("/me", async (req: AuthenticatedRequest, res) => {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   const user = await prisma.user.findUnique({
     where: { id: req.user.id },
-    select: { id: true, username: true, email: true, avatarUrl: true },
+    select: { id: true, username: true, email: true, avatarUrl: true, firstName: true, lastName: true },
   });
   if (!user) return res.status(404).json({ error: "User not found" });
   return res.json({ user });
@@ -98,10 +98,12 @@ router.patch("/me", async (req: AuthenticatedRequest, res) => {
   const bodySchema = z.object({
     email: z.string().email().max(200).nullable().optional(),
     username: z.string().min(3).max(50).optional(),
+    firstName: z.string().min(1).max(100).nullable().optional(),
+    lastName: z.string().min(1).max(100).nullable().optional(),
   });
   const parse = bodySchema.safeParse(req.body);
   if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
-  const { email, username } = parse.data;
+  const { email, username, firstName, lastName } = parse.data;
 
   try {
     // Ensure unique constraints manually to give friendly messages
@@ -123,8 +125,10 @@ router.patch("/me", async (req: AuthenticatedRequest, res) => {
       data: {
         ...(email !== undefined ? { email } : {}),
         ...(username !== undefined ? { username } : {}),
+        ...(firstName !== undefined ? { firstName } : {}),
+        ...(lastName !== undefined ? { lastName } : {}),
       },
-      select: { id: true, username: true, email: true, avatarUrl: true },
+      select: { id: true, username: true, email: true, avatarUrl: true, firstName: true, lastName: true },
     });
     return res.json({ user: updated });
   } catch (e: any) {
@@ -163,7 +167,7 @@ router.post("/me/avatar", upload.single("avatar"), async (req: AuthenticatedRequ
   const updated = await prisma.user.update({
     where: { id: req.user.id },
     data: { avatarUrl: publicPath },
-    select: { id: true, username: true, email: true, avatarUrl: true },
+    select: { id: true, username: true, email: true, avatarUrl: true, firstName: true, lastName: true },
   });
   return res.json({ user: updated });
 });

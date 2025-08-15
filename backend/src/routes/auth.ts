@@ -30,7 +30,7 @@ router.post("/register", async (req, res) => {
   const token = jwt.sign({ id: user.id, username: user.username }, config.jwtSecret, {
     expiresIn: "7d",
   });
-  return res.json({ token, user: { id: user.id, username: user.username, email: user.email ?? null, avatarUrl: user.avatarUrl ?? null } });
+  return res.json({ token, user: { id: user.id, username: user.username, email: user.email ?? null, avatarUrl: user.avatarUrl ?? null, firstName: user.firstName ?? null, lastName: user.lastName ?? null } });
 });
 
 router.post("/login", async (req, res) => {
@@ -47,7 +47,7 @@ router.post("/login", async (req, res) => {
   const token = jwt.sign({ id: user.id, username: user.username }, config.jwtSecret, {
     expiresIn: "7d",
   });
-  return res.json({ token, user: { id: user.id, username: user.username, email: user.email ?? null, avatarUrl: user.avatarUrl ?? null } });
+  return res.json({ token, user: { id: user.id, username: user.username, email: user.email ?? null, avatarUrl: user.avatarUrl ?? null, firstName: user.firstName ?? null, lastName: user.lastName ?? null } });
 });
 
 export default router;

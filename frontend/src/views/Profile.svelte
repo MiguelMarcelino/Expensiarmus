@@ -10,6 +10,8 @@
 
   let email: string = '';
   let username: string = '';
+  let firstName: string = '';
+  let lastName: string = '';
   let avatarPreview: string | null = null;
   let uploading = false;
   let saving = false;
@@ -34,6 +36,8 @@
       const { user } = await api('/me');
       email = user.email ?? '';
       username = user.username;
+      firstName = user.firstName ?? '';
+      lastName = user.lastName ?? '';
       currentUser.set(user);
       localStorage.setItem('user', JSON.stringify(user));
       // Load owned trips
@@ -96,7 +100,7 @@
   async function saveProfile() {
     saving = true;
     try {
-      const { user } = await api('/me', { method: 'PATCH', body: JSON.stringify({ email: email || null, username }) });
+      const { user } = await api('/me', { method: 'PATCH', body: JSON.stringify({ email: email || null, username, firstName: firstName || null, lastName: lastName || null }) });
       currentUser.set(user);
       localStorage.setItem('user', JSON.stringify(user));
       showSuccess('Profile updated');
@@ -254,6 +258,16 @@
       <div class="rounded-2xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm">
         <h2 class="font-semibold mb-4">Profile</h2>
         <div class="grid gap-3">
+          <div class="grid md:grid-cols-2 gap-3">
+            <div>
+              <label for="profile-first-name" class="block text-sm mb-1">First name</label>
+              <input id="profile-first-name" class="w-full border rounded p-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-700" bind:value={firstName} />
+            </div>
+            <div>
+              <label for="profile-last-name" class="block text-sm mb-1">Last name</label>
+              <input id="profile-last-name" class="w-full border rounded p-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-700" bind:value={lastName} />
+            </div>
+          </div>
           <div>
             <label for="profile-username" class="block text-sm mb-1">Username</label>
             <input id="profile-username" class="w-full border rounded p-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-700" bind:value={username} />
