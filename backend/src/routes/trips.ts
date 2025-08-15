@@ -346,6 +346,36 @@ router.put("/trips/:tripId", async (req: AuthenticatedRequest, res) => {
   res.json({ trip: { id: updated.id, name: updated.name, baseCurrency: updated.baseCurrency } });
 });
 
+// Delete a trip (owner-only)
+router.delete("/trips/:tripId", async (req: AuthenticatedRequest, res) => {
+  const paramsSchema = z.object({ tripId: z.string() });
+  const params = paramsSchema.safeParse(req.params);
+  if (!params.success) return res.status(400).json({ error: params.error.flatten() });
+  const { tripId } = params.data;
+  const userId = req.user!.id;
+
+  const trip = await prisma.trip.findUnique({ where: { id: tripId } });
+  if (!trip) return res.status(404).json({ error: "Trip not found" });
+  if (trip.ownerId !== userId) return res.status(403).json({ error: "Only the owner can delete this trip" });
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const expenses = await tx.expense.findMany({ where: { tripId }, select: { id: true } });
+      const expenseIds = expenses.map((e) => e.id);
+      if (expenseIds.length > 0) {
+        await tx.expenseSplit.deleteMany({ where: { expenseId: { in: expenseIds } } });
+        await (tx as any).expensePayment.deleteMany({ where: { expenseId: { in: expenseIds } } });
+        await tx.expense.deleteMany({ where: { id: { in: expenseIds } } });
+      }
+      await tx.tripMember.deleteMany({ where: { tripId } });
+      await tx.trip.delete({ where: { id: tripId } });
+    });
+    return res.status(204).send();
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || "Failed to delete trip" });
+  }
+});
+
 export default router;
 
 // Additional balances endpoint

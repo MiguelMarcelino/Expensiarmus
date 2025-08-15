@@ -96,3 +96,20 @@ export async function download(path: string, filename: string) {
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+// Convenience helpers for DELETE requests that expect 204 No Content
+export async function apiDelete(path: string) {
+  const headers = { ...authHeaders() } as Record<string, string>;
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'DELETE',
+    headers,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    let data: any = null;
+    if (text) { try { data = JSON.parse(text); } catch {} }
+    const message = extractErrorMessage(data, res.status);
+    throw new Error(message);
+  }
+  return {} as any;
+}

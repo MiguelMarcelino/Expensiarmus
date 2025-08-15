@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { api, API_BASE, download, fetchAuthed } from '../lib/api';
+  import { api, API_BASE, download, fetchAuthed, apiDelete } from '../lib/api';
   import { currentUser } from '../lib/auth';
   import type { User } from '../lib/types';
   import { showError, showSuccess } from '../lib/alerts';
@@ -25,6 +25,8 @@
   let showImportModal = false;
   let newTripName: string = '';
   let importFile: File | null = null;
+  let confirmDeleteTripId: string | null = null;
+  let confirmDeleteTripName: string = '';
 
   async function load() {
     try {
@@ -108,6 +110,24 @@
     try {
       await download(`/trips/${tripId}/expenses/export.csv`, `${tripName.replace(/[^a-z0-9\-_]+/gi, '_')}-expenses.csv`);
       showSuccess('Export started');
+    } catch (e: any) {
+      showError(e.message);
+    }
+  }
+
+  async function confirmDeleteTrip(tripId: string, tripName: string) {
+    confirmDeleteTripId = tripId;
+    confirmDeleteTripName = tripName;
+  }
+
+  async function deleteTripNow() {
+    if (!confirmDeleteTripId) return;
+    const id = confirmDeleteTripId;
+    confirmDeleteTripId = null;
+    try {
+      await apiDelete(`/trips/${id}`);
+      ownedTrips = ownedTrips.filter((t) => t.id !== id);
+      showSuccess('Trip deleted');
     } catch (e: any) {
       showError(e.message);
     }
@@ -293,6 +313,7 @@
                   <label class="px-3 py-1.5 rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 text-sm cursor-pointer" title="Import CSV to create expenses (duplicates are skipped)">
                     Import CSV<input type="file" accept=".csv,text/csv" class="hidden" on:change={(ev) => importTripCsv(t.id, ev)} />
                   </label>
+                  <button class="px-3 py-1.5 rounded bg-red-600 text-white text-sm" title="Delete trip" on:click={() => confirmDeleteTrip(t.id, t.name)}>Delete</button>
                 </div>
               </div>
             {/each}
@@ -319,6 +340,20 @@
             <button class="px-3 py-1.5 rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 text-sm" on:click={() => { if (!importingTrip) { showImportModal = false; } }} disabled={importingTrip}>Cancel</button>
             <button class="px-3 py-1.5 rounded bg-indigo-600 text-white text-sm disabled:opacity-60 disabled:cursor-not-allowed" on:click={confirmImportTrip} disabled={importingTrip || !importFile}>{importingTrip ? 'Importing…' : 'Import'}</button>
           </div>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if confirmDeleteTripId}
+    <div class="fixed inset-0 z-50 flex items-center justify-center">
+      <button class="absolute inset-0 bg-black/50" on:click={() => (confirmDeleteTripId = null)} aria-label="Close delete dialog"></button>
+      <div class="relative w-full max-w-md mx-4 rounded-2xl border border-black/5 dark:border-white/10 bg-white dark:bg-gray-800 p-6 shadow-xl">
+        <h3 class="font-semibold mb-4">Delete trip</h3>
+        <p class="text-sm opacity-80 mb-4">Delete "{confirmDeleteTripName}" and all its expenses? This cannot be undone.</p>
+        <div class="flex justify-end gap-2">
+          <button class="px-3 py-1.5 rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 text-sm" on:click={() => (confirmDeleteTripId = null)}>Cancel</button>
+          <button class="px-3 py-1.5 rounded bg-red-600 text-white text-sm" on:click={deleteTripNow}>Delete</button>
         </div>
       </div>
     </div>
