@@ -1,8 +1,9 @@
 import { prisma } from "../prisma";
 
-type RateKey = `${string}_${string}`; // from_to
+type RateKey = `${string}_${string}_${string}`; // from_to_YYYY-MM-DD
 
 const cache = new Map<RateKey, number>();
+const warnedMissing = new Set<RateKey>();
 
 export function normalizeCurrency(code: string | undefined | null, fallback = 'EUR'): string {
   const c = (code || fallback).trim().toUpperCase();
@@ -18,11 +19,12 @@ export async function getRate(from: string, to: string, at?: Date): Promise<numb
   const f = normalizeCurrency(from, 'EUR');
   const t = normalizeCurrency(to, 'EUR');
   if (f === t) return 1;
-  const key: RateKey = `${f}_${t}`;
+  const date = toUtcMidnight(at);
+  const day = date.toISOString().slice(0, 10);
+  const key: RateKey = `${f}_${t}_${day}`;
   const cached = cache.get(key);
   if (cached && cached > 0) return cached;
 
-  const date = toUtcMidnight(at);
   try {
     // Try direct rate f->t using last known rate at or before date
     const direct = await (prisma as any).currencyRate.findFirst({
@@ -60,7 +62,11 @@ export async function getRate(from: string, to: string, at?: Date): Promise<numb
     console.warn('FX DB lookup failed', e);
   }
   // If nothing in DB, fallback to 1:1 to avoid hard failure; still log
-  console.warn(`FX rate not found for ${f}->${t} at ${date.toISOString()}, using 1.0`);
+  if (!warnedMissing.has(key)) {
+    console.warn(`FX rate not found for ${f}->${t} at ${date.toISOString()}, using 1.0`);
+    warnedMissing.add(key);
+  }
+  cache.set(key, 1);
   return 1;
 }
 
