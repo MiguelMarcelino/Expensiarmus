@@ -34,6 +34,7 @@
   let myId: string = '';
   let importing = false;
   let showAddMember = false;
+  let showFabMenu = false;
 
   // manual form
   let description = '';
@@ -666,7 +667,8 @@
   $: transfers = serverTransfers ? serverTransfers : minimizeTransfers(balances);
   $: myId = me?.id || '';
   $: myDebts = (myId && Array.isArray(transfers)) ? transfers.filter((t) => t.from === myId && t.amountCents > 0) : [];
-  $: canSettle = myDebts.length > 0;
+  $: canSettle = (myId ? ((balances[myId] || 0) < 0) : false) || myDebts.length > 0;
+  let confirmSettle = false;
 
   async function settleUp() {
     if (!tripId || !me) return;
@@ -1130,22 +1132,43 @@
   </div>
 {/if}
 
-<!-- Floating add expense button -->
-<a href={`#/trip/${tripId}/add-expense`} class="fixed bottom-6 right-6 z-30 inline-flex items-center justify-center h-14 w-14 rounded-full bg-indigo-600 text-white shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" title="Add expense" aria-label="Add expense">
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-  <span class="sr-only">Add expense</span>
-</a>
-
-<!-- Floating add member button -->
-<button type="button" class="fixed bottom-24 right-6 z-30 inline-flex items-center justify-center h-14 w-14 rounded-full bg-gray-900 text-white shadow-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 dark:bg-gray-200 dark:text-gray-900 dark:hover:bg-gray-100" title="Add member" aria-label="Add member" on:click={() => showAddMember = true}>
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-    <circle cx="9" cy="7" r="4"/>
-    <line x1="19" y1="8" x2="19" y2="14"/>
-    <line x1="16" y1="11" x2="22" y2="11"/>
-  </svg>
-  <span class="sr-only">Add member</span>
+<!-- Floating Speed Dial -->
+{#if showFabMenu}
+  <button type="button" class="fixed inset-0 z-20" aria-label="Close actions" on:click={() => showFabMenu = false}></button>
+{/if}
+<div class="fixed bottom-6 right-6 z-30">
+  {#if showFabMenu}
+    <div class="flex flex-col items-end gap-3 mb-3">
+      <!-- Settle up (only if actionable) -->
+      {#if canSettle}
+        <button type="button" class="inline-flex items-center justify-center h-14 w-14 rounded-full bg-emerald-600 text-white shadow-lg hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500" title="Settle up" aria-label="Settle up" on:click={() => { showFabMenu = false; confirmSettle = true; }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1v22"/><path d="M17 5H9.5a4.5 4.5 0 0 0 0 9H14a4.5 4.5 0 0 1 0 9H6"/></svg>
+        </button>
+      {/if}
+      <!-- Add member -->
+      <button type="button" class="inline-flex items-center justify-center h-14 w-14 rounded-full bg-gray-900 text-white shadow-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 dark:bg-gray-200 dark:text-gray-900 dark:hover:bg-gray-100" title="Add member" aria-label="Add member" on:click={() => { showFabMenu = false; showAddMember = true; }}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <line x1="19" y1="8" x2="19" y2="14"/>
+          <line x1="16" y1="11" x2="22" y2="11"/>
+        </svg>
+      </button>
+      <!-- Add expense -->
+      <a href={`#/trip/${tripId}/add-expense`} class="inline-flex items-center justify-center h-14 w-14 rounded-full bg-indigo-600 text-white shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" title="Add expense" aria-label="Add expense" on:click={() => showFabMenu = false}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="2" y="5" width="20" height="14" rx="2" ry="2"></rect>
+          <line x1="2" y1="10" x2="22" y2="10"></line>
+          <line x1="6" y1="15" x2="10" y2="15"></line>
+        </svg>
+      </a>
+    </div>
+  {/if}
+  <!-- Main FAB -->
+  <button type="button" class="inline-flex items-center justify-center h-14 w-14 rounded-full bg-indigo-600 text-white shadow-xl hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-transform {showFabMenu ? 'rotate-45' : ''}" aria-label="Actions" title="Actions" on:click={() => showFabMenu = !showFabMenu}>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
   </button>
+</div>
 
 <!-- Add Member Spotlight Overlay -->
 <AddMemberSpotlight
@@ -1154,3 +1177,21 @@
   on:added={async () => { try { const res = await api(`/trips/${tripId}/members`); members = res.members as Member[]; showSuccess('Member added.'); await loadActivity(); } catch (e: any) { showError(e.message); } finally { showAddMember = false; } }}
   on:close={() => showAddMember = false}
 />
+
+{#if confirmSettle && canSettle}
+  <!-- Confirm settle overlay -->
+  <div class="fixed inset-0 z-40 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/40" role="button" tabindex="0" on:click={() => confirmSettle = false} on:keydown={(e) => ((e as KeyboardEvent).key === 'Escape') && (confirmSettle = false)}></div>
+    <div class="relative z-50 w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10 shadow-lg p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-semibold">Confirm settlement</h3>
+        <button class="px-2 py-1 text-sm rounded-md border border-black/5 dark:border-white/10" on:click={() => confirmSettle = false}>Close</button>
+      </div>
+      <p class="text-sm opacity-80 mb-4">This will create a settlement entry to even out balances for this trip.</p>
+      <div class="flex items-center justify-end gap-2">
+        <button class="px-3 py-2 rounded-md border border-black/5 dark:border-white/10" on:click={() => confirmSettle = false}>Cancel</button>
+        <button class="px-3 py-2 rounded-md bg-emerald-600 text-white disabled:opacity-60 disabled:cursor-not-allowed" on:click={async () => { await settleUp(); confirmSettle = false; }} disabled={settling}>{settling ? 'Settling…' : 'Confirm'}</button>
+      </div>
+    </div>
+  </div>
+{/if}
