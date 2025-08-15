@@ -114,12 +114,27 @@
         const values = Object.values(paidByUserId).map(Number).filter((v) => v > 0);
         const allEq = values.length > 1 && values.every((v) => Math.abs(v - values[0]) < 0.005);
         paymentMode = allEq ? 'equal' : 'custom_amounts';
+        
+        // Determine the primary payer (user who paid the most, or first payer if tie)
+        const payers = e.payments.filter(p => p.amountCents > 0);
+        if (payers.length === 1) {
+          // Single payer - this is the primary payer
+          payerUserId = payers[0].userId;
+          paymentMode = 'payer';
+        } else if (payers.length > 1) {
+          // Multiple payers - set the one who paid the most as primary payer
+          const primaryPayer = payers.reduce((max, p) => p.amountCents > max.amountCents ? p : max);
+          payerUserId = primaryPayer.userId;
+        } else {
+          // No payments (shouldn't happen, but fallback)
+          payerUserId = e.createdBy.id;
+        }
       } else {
         // Fallback: creator paid all
         paidByUserId[e.createdBy.id] = (e.amountCents / 100).toFixed(2);
+        payerUserId = e.createdBy.id;
         paymentMode = 'payer';
       }
-      payerUserId = e.createdBy.id;
       paidCurrencyByUserId = Object.fromEntries(allUserIds.map((id) => [id, (e.currency || baseCurrency).toUpperCase()]));
       // seed percents
       const total = Number(amount) || 0;
@@ -166,6 +181,7 @@
         category: category || undefined,
         incurredAt: incurredAtInput ? new Date(incurredAtInput).toISOString() : undefined,
         currency: expenseCurrency.toUpperCase(),
+        payerUserId,
         payments,
         splits,
       };

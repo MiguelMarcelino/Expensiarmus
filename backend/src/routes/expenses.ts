@@ -511,6 +511,7 @@ router.put("/expenses/:id", async (req: AuthenticatedRequest, res) => {
     incurredAt: z.string().datetime().optional(),
     amount: z.number().positive().optional(),
     currency: z.string().length(3).optional(),
+    payerUserId: z.string().optional(),
     splits: z.array(z.object({ userId: z.string(), amount: z.number().nonnegative() })).optional(),
     payments: z.array(z.object({ userId: z.string(), amount: z.number().nonnegative(), currency: z.string().length(3).optional() })).optional(),
   });
@@ -578,6 +579,12 @@ router.put("/expenses/:id", async (req: AuthenticatedRequest, res) => {
         await (tx as any).expensePayment.deleteMany({ where: { expenseId } });
         await (tx as any).expensePayment.createMany({
           data: data.payments.map((p) => ({ expenseId, userId: p.userId, amountCents: toCents(p.amount), currency: normalizeCurrency(p.currency || newCurrency) })),
+        });
+      } else if (data.payerUserId) {
+        // If only payerUserId is provided without payments, set them to pay the full amount
+        await (tx as any).expensePayment.deleteMany({ where: { expenseId } });
+        await (tx as any).expensePayment.create({
+          data: { expenseId, userId: data.payerUserId, amountCents: newAmountCents, currency: newCurrency },
         });
       }
 
