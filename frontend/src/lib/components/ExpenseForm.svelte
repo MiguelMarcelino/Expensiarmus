@@ -353,7 +353,7 @@
           {/each}
         </div>
       {/if}
-      <div class="text-xs opacity-70 mt-1">Total payments: ${sumStrings(paidByUserId).toFixed(2)}</div>
+      <div class="text-xs opacity-70 mt-1">Total payments: {sumStrings(paidByUserId).toFixed(2)}</div>
       {#if Number(amount) > 0}
         <div class="mt-2 space-y-2">
           <div class="text-xs opacity-70">Who pays</div>
@@ -417,7 +417,7 @@
             {/each}
           </div>
         {/if}
-        <div class="text-xs opacity-70 mt-1">Total splits: ${sumStrings(Object.fromEntries(Object.entries(splitByUserId).filter(([id]) => selectedSplitUserIdMap[id]))).toFixed(2)}</div>
+        <div class="text-xs opacity-70 mt-1">Total splits: {sumStrings(Object.fromEntries(Object.entries(splitByUserId).filter(([id]) => selectedSplitUserIdMap[id]))).toFixed(2)}</div>
       </div> -->
     </div>
   </div>

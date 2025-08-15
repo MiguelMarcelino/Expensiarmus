@@ -126,8 +126,8 @@
     const total = Number(amount) || 0;
     const splitSum = sumStrings(Object.fromEntries(Object.entries(splitByUserId).filter(([id]) => selectedSplitUserIdMap[id])));
     const paidSum = sumStrings(paidByUserId);
-    if (Math.round(splitSum * 100) !== Math.round(total * 100)) return `Splits must sum to ${total.toFixed(2)}`;
-    if (Math.round(paidSum * 100) !== Math.round(total * 100)) return `Payments must sum to ${total.toFixed(2)}`;
+    if (Math.round(splitSum * 100) !== Math.round(total * 100)) return `Splits must sum to ${expenseCurrency} ${total.toFixed(2)}`;
+    if (Math.round(paidSum * 100) !== Math.round(total * 100)) return `Payments must sum to ${expenseCurrency} ${total.toFixed(2)}`;
     return null;
   }
 
