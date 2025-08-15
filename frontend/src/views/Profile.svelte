@@ -27,6 +27,7 @@
   let importFile: File | null = null;
   let confirmDeleteTripId: string | null = null;
   let confirmDeleteTripName: string = '';
+  let openMenuForTripId: string | null = null;
 
   async function load() {
     try {
@@ -131,6 +132,11 @@
     } catch (e: any) {
       showError(e.message);
     }
+  }
+
+  function triggerImportInput(tripId: string) {
+    const el = document.getElementById(`import-input-${tripId}`) as HTMLInputElement | null;
+    if (el) el.click();
   }
 
   async function importTripCsv(tripId: string, ev: Event) {
@@ -303,18 +309,25 @@
         {:else}
           <div class="grid gap-3">
             {#each ownedTrips as t}
-              <div class="flex items-center justify-between p-3 rounded-xl border border-black/5 dark:border-white/10 bg-white/70 dark:bg-gray-800/50">
+              <div class="flex items-center justify-between p-3 rounded-xl border border-black/5 dark:border-white/10 bg-white/70 dark:bg-gray-800/50 relative">
                 <div class="min-w-0">
                   <div class="font-medium truncate">{t.name}</div>
                   <div class="text-xs opacity-70">{new Date(t.createdAt).toLocaleDateString()} • Base {t.baseCurrency || 'EUR'}</div>
                 </div>
-                <div class="flex items-center gap-2">
-                  <button class="px-3 py-1.5 rounded bg-gray-900 text-white text-sm dark:bg-gray-200 dark:text-gray-900" on:click={() => exportTrip(t.id, t.name)} title="Export CSV">Export</button>
-                  <label class="px-3 py-1.5 rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 text-sm cursor-pointer" title="Import CSV to create expenses (duplicates are skipped)">
-                    Import CSV<input type="file" accept=".csv,text/csv" class="hidden" on:change={(ev) => importTripCsv(t.id, ev)} />
-                  </label>
-                  <button class="px-3 py-1.5 rounded bg-red-600 text-white text-sm" title="Delete trip" on:click={() => confirmDeleteTrip(t.id, t.name)}>Delete</button>
+                <div class="relative">
+                  <button class="inline-flex items-center justify-center h-9 w-9 rounded-lg border border-black/5 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-gray-700" aria-haspopup="menu" aria-expanded={openMenuForTripId === t.id} aria-label="Trip actions" on:click={() => openMenuForTripId = openMenuForTripId === t.id ? null : t.id}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                  </button>
+                  {#if openMenuForTripId === t.id}
+                    <button class="fixed inset-0 z-10" on:click={() => openMenuForTripId = null} aria-label="Close menu"></button>
+                    <div class="absolute right-0 z-20 mt-2 w-44 rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-gray-800 shadow-lg overflow-hidden">
+                      <button class="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700" on:click={() => { openMenuForTripId = null; exportTrip(t.id, t.name); }}>Export CSV</button>
+                      <button class="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700" on:click={() => { openMenuForTripId = null; triggerImportInput(t.id); }}>Import CSV</button>
+                      <button class="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30" on:click={() => { openMenuForTripId = null; confirmDeleteTrip(t.id, t.name); }}>Delete</button>
+                    </div>
+                  {/if}
                 </div>
+                <input id={`import-input-${t.id}`} type="file" accept=".csv,text/csv" class="hidden" on:change={(ev) => importTripCsv(t.id, ev)} />
               </div>
             {/each}
           </div>
