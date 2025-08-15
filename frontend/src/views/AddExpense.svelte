@@ -6,6 +6,7 @@
   import { showError, showSuccess } from '../lib/alerts';
   import { currencies } from '../lib/constants/currencies';
   import { categories as predefinedCategories } from '../lib/constants/categories';
+  import { ocrReceipt } from '../lib/receipt';
 
   export let params: { id: string };
   let tripId: string = '';
@@ -35,6 +36,10 @@
   let paidCurrencyByUserId: Record<string, string> = {};
   let selectedSplitUserIdMap: Record<string, boolean> = {};
   let aiInput = '';
+  let addActiveTab: 'manual' | 'ai' = 'manual';
+  let receiptFile: File | null = null;
+  let scanning = false;
+  let scanStatus = '';
 
   // Visualization helpers for compact allocation preview (payments)
   const colorPalette: string[] = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#84cc16', '#f472b6', '#a855f7', '#f97316', '#22d3ee'];
@@ -134,6 +139,48 @@
       splitByUserId = Object.fromEntries(ids.map((id) => [id, per.toFixed(2)]));
     }
     recalcPayments();
+  }
+
+  function toDatetimeLocal(iso?: string): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    const mm = pad(d.getMonth() + 1);
+    const dd = pad(d.getDate());
+    const hh = pad(d.getHours());
+    const mi = pad(d.getMinutes());
+    return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+  }
+
+  async function onScanReceipt() {
+    if (!receiptFile) { showError('Select a receipt image first.'); return; }
+    if (receiptFile.type && receiptFile.type.toLowerCase().includes('pdf')) {
+      showError('PDF is not supported yet. Please upload an image (JPG/PNG).');
+      return;
+    }
+    try {
+      scanning = true;
+      scanStatus = 'Recognizing text...';
+      const parsed = await ocrReceipt(receiptFile);
+      if (parsed.description && !description) description = parsed.description;
+      if (parsed.amount && !amount) { amount = parsed.amount.toFixed(2); onAmountChange(); }
+      if (parsed.currency) {
+        const cur = parsed.currency.toUpperCase();
+        if ((currencies as readonly string[]).includes(cur)) expenseCurrency = cur;
+      }
+      if (parsed.incurredAt) {
+        const dt = toDatetimeLocal(parsed.incurredAt);
+        if (dt) incurredAtInput = dt;
+      }
+      showSuccess('Receipt parsed. Review and submit.');
+    } catch (e: any) {
+      showError(e?.message || 'Failed to scan receipt');
+    } finally {
+      scanning = false;
+      scanStatus = '';
+    }
   }
 
   function recalcPayments() {
@@ -318,10 +365,38 @@
   <div class="flex items-center justify-between">
     <h2 class="text-lg font-semibold">Add expense</h2>
   </div>
+  <div class="flex items-center gap-2 border-b border-black/5 dark:border-white/10 -mx-6 px-6 pb-3">
+    <button class="px-3 py-2 text-sm rounded-t-lg {addActiveTab==='manual' ? 'bg-indigo-600 text-white' : ''}"
+      on:click={() => addActiveTab='manual'}>Manual</button>
+    <button class="px-3 py-2 text-sm rounded-t-lg {addActiveTab==='ai' ? 'bg-indigo-600 text-white' : ''}"
+      on:click={() => addActiveTab='ai'}>
+      <span class="inline-flex items-center gap-1">
+        <span>AI</span>
+        <span aria-hidden="true">✨</span>
+      </span>
+    </button>
+  </div>
 
+  {#if addActiveTab === 'manual'}
   <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
     <input class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" placeholder="Description" bind:value={description} />
     <input type="number" min="0" step="0.01" class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" placeholder="Amount" bind:value={amount} on:change={onAmountChange} />
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+    <div class="flex items-center gap-2">
+      <input type="file" accept="image/*,application/pdf" class="flex-1 text-sm" on:change={(e) => { const f = (e.target as HTMLInputElement).files?.[0] || null; receiptFile = f; }} />
+      <button type="button" class="px-3 py-2 rounded-lg border border-black/5 dark:border-white/10 bg-white/70 dark:bg-gray-800/60 disabled:opacity-60 disabled:cursor-not-allowed" on:click={onScanReceipt} disabled={!receiptFile || scanning}>
+        {#if scanning}
+          <span>Scanning…</span>
+        {:else}
+          <span>Scan receipt</span>
+        {/if}
+      </button>
+    </div>
+    {#if scanStatus}
+      <div class="text-xs opacity-70">{scanStatus}</div>
+    {/if}
   </div>
 
   <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -450,27 +525,27 @@
     <a href={`#/trip/${tripId}`} class="px-3 py-2 rounded-lg border border-black/5 dark:border-white/10">Cancel</a>
     <button class="px-4 py-2 rounded-lg bg-indigo-600 text-white disabled:opacity-60 disabled:cursor-not-allowed" on:click={addExpense} disabled={addDisabled}>Add expense</button>
   </div>
-</section>
-
-<section class="mt-4 rounded-3xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm space-y-3">
-  <h3 class="font-semibold">AI expense entry</h3>
-  <textarea class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" rows="3" placeholder="Describe the expense..." bind:value={aiInput}></textarea>
-  <button class="w-full py-2 rounded-lg bg-purple-600 text-white disabled:opacity-60 disabled:cursor-not-allowed" on:click={async () => {
-    try {
-      const res = await api('/ai/parse', { method: 'POST', body: JSON.stringify({ input: aiInput }) });
-      if (res.expense?.tripId === tripId) {
-        showSuccess('Expense added from AI.');
-        window.location.hash = `#/trip/${tripId}`;
-      } else {
-        showSuccess('AI parsed. Check your trip expenses.');
-        window.location.hash = `#/trip/${tripId}`;
+  {:else}
+  <div class="space-y-3 pt-2">
+    <div class="text-sm opacity-80">Describe the expense or paste a receipt summary. We’ll parse and add it.</div>
+    <textarea class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" rows="5" placeholder="Describe the expense..." bind:value={aiInput}></textarea>
+    <button class="w-full py-2 rounded-lg bg-purple-600 text-white disabled:opacity-60 disabled:cursor-not-allowed" on:click={async () => {
+      try {
+        const res = await api('/ai/parse', { method: 'POST', body: JSON.stringify({ input: aiInput }) });
+        if (res.expense?.tripId === tripId) {
+          showSuccess('Expense added from AI.');
+          window.location.hash = `#/trip/${tripId}`;
+        } else {
+          showSuccess('AI parsed. Check your trip expenses.');
+          window.location.hash = `#/trip/${tripId}`;
+        }
+        aiInput = '';
+      } catch (e: any) {
+        showError(e.message);
       }
-      aiInput = '';
-    } catch (e: any) {
-      showError(e.message);
-    }
-  }} disabled={!aiInput.trim()}>Parse & Add</button>
-  <p class="text-xs opacity-70">Example: "I want to register an expense for my trip to Japan. I just bought two flights at 1500 each and need you to add that to my Japan trip."</p>
+    }} disabled={!aiInput.trim()}>Parse & Add</button>
+    <p class="text-xs opacity-70">Example: "I want to register an expense for my trip to Japan. I just bought two flights at 1500 each and need you to add that to my Japan trip."</p>
+  </div>
+  {/if}
 </section>
-
 

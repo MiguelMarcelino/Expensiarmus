@@ -23,4 +23,8 @@
     "vite": "^7.1.0",
     "zod": "^4.0.16"
   }
+  ,
+  "dependencies": {
+    "tesseract.js": "^5.0.5"
+  }
 }
