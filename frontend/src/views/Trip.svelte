@@ -668,7 +668,13 @@
     try {
       const res = await api(`/trips/${tripId}/settle`, { method: 'POST' });
       if (res.expense) {
+        // Legacy single expense response
         upsertExpense(res.expense as Expense);
+      } else if (res.expenses && Array.isArray(res.expenses)) {
+        // New multi-currency settlement response
+        for (const expense of res.expenses) {
+          upsertExpense(expense as Expense);
+        }
       }
       // Refresh server balances/transfers to reflect settlement
       serverBalances = null;
@@ -679,7 +685,7 @@
         serverTransfers = (b && Array.isArray(b.transfers) && b.transfers.length > 0) ? b.transfers : null;
         baseCurrency = (b?.baseCurrency || baseCurrency).toUpperCase();
       } catch {}
-      showSuccess('Settlement recorded.');
+      showSuccess(res.message || 'Settlement recorded.');
       await loadActivity();
     } catch (e: any) {
       showError(e.message);
@@ -819,13 +825,6 @@
     {displayName}
     currencyLabel={baseCurrency}
   />
-  {#if canSettle}
-    <div class="mt-3">
-      <button class="px-4 py-2 rounded-lg bg-emerald-600 text-white disabled:opacity-60 disabled:cursor-not-allowed" on:click={settleUp} disabled={settling}>
-        {settling ? 'Settling…' : 'Settle up'}
-      </button>
-    </div>
-  {/if}
 </section>
 
 <div class="grid md:grid-cols-4 lg:grid-cols-5 gap-6 mt-2">
