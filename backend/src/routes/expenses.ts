@@ -372,6 +372,30 @@ router.post("/expenses", async (req: AuthenticatedRequest, res) => {
   }
 });
 
+// Fetch a single expense with relations
+router.get("/expenses/:id", async (req: AuthenticatedRequest, res) => {
+  const paramsSchema = z.object({ id: z.string() });
+  const params = paramsSchema.safeParse(req.params);
+  if (!params.success) return res.status(400).json({ error: params.error.flatten() });
+  const expenseId = params.data.id;
+
+  const existing = await prisma.expense.findUnique({ where: { id: expenseId } });
+  if (!existing || (existing as any).deletedAt) return res.status(404).json({ error: "Expense not found" });
+
+  // Permission: must be owner or member of the trip
+  const trip = await prisma.trip.findFirst({
+    where: { id: existing.tripId, OR: [{ ownerId: req.user!.id }, { members: { some: { userId: req.user!.id } } }] },
+  });
+  if (!trip) return res.status(403).json({ error: "Access denied" });
+
+  const expense = await prisma.expense.findUnique({
+    where: { id: expenseId },
+    include: { splits: true, payments: true, createdBy: { select: { id: true, username: true } } } as any,
+  });
+  if (!expense) return res.status(404).json({ error: "Expense not found" });
+  return res.json({ expense });
+});
+
 // Create expense with optional receipt upload via multipart/form-data
 router.post("/expenses/with-receipt", receiptUpload.single("receipt"), async (req: AuthenticatedRequest, res) => {
   const schema = z.object({

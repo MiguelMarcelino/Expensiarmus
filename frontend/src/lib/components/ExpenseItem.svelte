@@ -21,7 +21,7 @@
   <div class="flex items-start gap-3 min-w-0">
     <ExpenseIcon description={expense.description} category={expense.category} expenseType={expense.expenseType} />
     <div class="min-w-0">
-      <div class="font-medium truncate">{expense.description}</div>
+      <a class="font-medium truncate hover:underline" href={`#/trip/${(expense as any).tripId || ''}/expense/${expense.id}`}>{expense.description}</a>
       <div class="mt-1 text-xs opacity-70 flex flex-wrap items-center gap-2">
         {#if expense.expenseType || expense.category}
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-500/10 text-gray-700 dark:text-gray-200 border border-gray-500/20">{expense.expenseType || expense.category}</span>
