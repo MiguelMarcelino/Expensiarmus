@@ -21,6 +21,10 @@
   type OwnedTrip = { id: string; name: string; createdAt: string; baseCurrency?: string };
   let ownedTrips: OwnedTrip[] = [];
   let loadingOwned = false;
+  let importingTrip = false;
+  let showImportModal = false;
+  let newTripName: string = '';
+  let importFile: File | null = null;
 
   async function load() {
     try {
@@ -44,6 +48,45 @@
       if (!me) {
         window.location.hash = '#/';
       }
+    }
+  }
+
+  function onImportFileChange(ev: Event) {
+    const input = ev.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) { importFile = null; return; }
+    importFile = input.files[0];
+  }
+
+  async function confirmImportTrip() {
+    if (!importFile) { showError('Please choose a CSV file'); return; }
+    const form = new FormData();
+    form.append('file', importFile);
+    if (newTripName && newTripName.trim()) form.append('name', newTripName.trim());
+    importingTrip = true;
+    try {
+      const res = await fetchAuthed('/trips/import', { method: 'POST', body: form });
+      const text = await res.text().catch(() => '');
+      let data: any = {};
+      if (text) { try { data = JSON.parse(text); } catch {} }
+      if (!res.ok) {
+        const msg = data?.error || data?.message || `Import failed (${res.status})`;
+        throw new Error(msg);
+      }
+      const trip = data?.trip;
+      if (trip?.id) {
+        showSuccess(`Created trip "${trip.name}"`);
+        ownedTrips = [trip, ...ownedTrips];
+      } else {
+        showSuccess('Trip created');
+        await load();
+      }
+      newTripName = '';
+      importFile = null;
+      showImportModal = false;
+    } catch (e: any) {
+      showError(e.message);
+    } finally {
+      importingTrip = false;
     }
   }
 
@@ -226,9 +269,14 @@
       <div class="rounded-2xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-800/60 backdrop-blur p-6 shadow-sm">
         <div class="flex items-center justify-between mb-4">
           <h2 class="font-semibold">Your trips</h2>
-          {#if loadingOwned}
-            <span class="text-xs opacity-70">Loading…</span>
-          {/if}
+          <div class="flex items-center gap-2">
+            {#if loadingOwned}
+              <span class="text-xs opacity-70">Loading…</span>
+            {/if}
+            <button class="px-3 py-1.5 rounded bg-indigo-600 text-white text-sm disabled:opacity-60 disabled:cursor-not-allowed" on:click={() => { showImportModal = true; }} disabled={importingTrip}>
+              Import Trip CSV
+            </button>
+          </div>
         </div>
         {#if ownedTrips.length === 0 && !loadingOwned}
           <div class="text-sm opacity-70">You don't own any trips yet.</div>
@@ -253,6 +301,28 @@
       </div>
     </div>
   </div>
+  {#if showImportModal}
+    <div class="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="import-modal-title">
+      <button class="absolute inset-0 bg-black/50" on:click={() => !importingTrip && (showImportModal = false)} aria-label="Close import modal"></button>
+      <div class="relative w-full max-w-md mx-4 rounded-2xl border border-black/5 dark:border-white/10 bg-white dark:bg-gray-800 p-6 shadow-xl">
+        <h3 id="import-modal-title" class="font-semibold mb-4">Import trip from CSV</h3>
+        <div class="space-y-3">
+          <div>
+            <label for="new-trip-name" class="block text-sm mb-1">Trip name (optional)</label>
+            <input id="new-trip-name" class="w-full border rounded p-2 bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 border-gray-300 dark:border-gray-700" bind:value={newTripName} placeholder="e.g. Summer in Italy" />
+          </div>
+          <div>
+            <label for="import-csv-file" class="block text-sm mb-1">CSV file</label>
+            <input id="import-csv-file" type="file" accept=".csv,text/csv" on:change={onImportFileChange} />
+          </div>
+          <div class="flex justify-end gap-2 pt-2">
+            <button class="px-3 py-1.5 rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 text-sm" on:click={() => { if (!importingTrip) { showImportModal = false; } }} disabled={importingTrip}>Cancel</button>
+            <button class="px-3 py-1.5 rounded bg-indigo-600 text-white text-sm disabled:opacity-60 disabled:cursor-not-allowed" on:click={confirmImportTrip} disabled={importingTrip || !importFile}>{importingTrip ? 'Importing…' : 'Import'}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  {/if}
 </section>
 
 <style>

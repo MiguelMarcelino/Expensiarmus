@@ -3,8 +3,21 @@ import { z } from "zod";
 import { prisma } from "../prisma";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { convertCents, normalizeCurrency } from "../utils/fx";
+import multer from "multer";
+import { parse as parseCsv } from "csv-parse/sync";
 
 const router = Router();
+
+// Multer configuration for CSV uploads (in-memory)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const isCsv = file.mimetype === "text/csv" || file.originalname.toLowerCase().endsWith(".csv");
+    if (isCsv) cb(null, true);
+    else cb(new Error("Only CSV files are allowed"));
+  },
+});
 
 router.get("/trips", async (req: AuthenticatedRequest, res) => {
   const userId = req.user!.id;
@@ -19,6 +32,144 @@ router.get("/trips", async (req: AuthenticatedRequest, res) => {
     orderBy: { createdAt: "desc" },
   });
   res.json({ trips });
+});
+
+// Import a new trip from CSV
+// Accepts multipart/form-data with fields:
+// - file: CSV file (required)
+// - name: optional trip name (defaults to "Imported Trip <date>")
+// - baseCurrency: optional 3-letter code (defaults to EUR or inferred from first row currency)
+router.post("/trips/import", upload.single("file"), async (req: AuthenticatedRequest, res) => {
+  const userId = req.user!.id;
+  if (!req.file || !req.file.buffer) return res.status(400).json({ error: "No CSV file uploaded" });
+
+  try {
+    const text = req.file.buffer.toString("utf8");
+    const rows: any[] = parseCsv(text, { columns: true, skip_empty_lines: true, trim: true });
+    if (!rows.length) return res.status(400).json({ error: "CSV has no rows" });
+
+    const nameRaw = typeof (req.body as any)?.name === 'string' ? (req.body as any).name : '';
+    const providedBase = typeof (req.body as any)?.baseCurrency === 'string' ? (req.body as any).baseCurrency : '';
+    const firstCur = rows.find(r => r.currency)?.currency as string | undefined;
+    const baseCurrency = normalizeCurrency((providedBase || firstCur || 'EUR'));
+    const safeName = nameRaw && nameRaw.trim().length > 0 ? nameRaw.trim() : `Imported Trip ${new Date().toLocaleDateString()}`;
+
+    const created = await prisma.$transaction(async (tx) => {
+      // Create trip owned by current user
+      const trip = await tx.trip.create({ data: { name: safeName, ownerId: userId, baseCurrency } });
+
+      // Collect referenced userIds from splits/payments/createdById
+      const referencedUserIds = new Set<string>();
+      for (const row of rows) {
+        if (row.createdById) referencedUserIds.add(String(row.createdById));
+        try {
+          if (row.splits) {
+            const s = JSON.parse(row.splits);
+            for (const sp of s) if (sp.userId) referencedUserIds.add(String(sp.userId));
+          }
+        } catch {}
+        try {
+          if (row.payments) {
+            const p = JSON.parse(row.payments);
+            for (const pay of p) if (pay.userId) referencedUserIds.add(String(pay.userId));
+          }
+        } catch {}
+      }
+      referencedUserIds.delete(userId); // owner will be participant by default
+      const knownUsers = referencedUserIds.size
+        ? await tx.user.findMany({ where: { id: { in: Array.from(referencedUserIds) } }, select: { id: true } })
+        : [];
+      // Add members that exist
+      if (knownUsers.length) {
+        await tx.tripMember.createMany({
+          data: knownUsers.map((u) => ({ tripId: trip.id, userId: u.id, role: "member" })),
+        });
+      }
+
+      // Helper for conversion
+      const toCents = (n: number) => Math.round(n * 100);
+
+      // Create expenses
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const description = String(row.description || '').trim();
+        if (!description) continue;
+        const category = row.category ? String(row.category).trim() : undefined;
+        const expenseType = row.expenseType ? String(row.expenseType).trim() : undefined;
+        const quantity = row.quantity ? Number(row.quantity) : undefined;
+        const unitPrice = row.unitPrice ? Number(row.unitPrice) : undefined;
+        const amount = Number(row.amount);
+        if (!Number.isFinite(amount) || amount <= 0) throw new Error(`Row ${i + 2}: invalid amount`);
+        const currency = normalizeCurrency(row.currency ? String(row.currency).trim() : baseCurrency);
+        const incurredAt = row.incurredAt ? new Date(String(row.incurredAt)) : new Date();
+        const createdById = (row.createdById && knownUsers.some(u => u.id === String(row.createdById))) ? String(row.createdById) : userId;
+
+        // Parse optional JSON columns
+        let splits: { userId: string; amount: number }[] | undefined;
+        try { if (row.splits) splits = JSON.parse(row.splits); } catch {}
+        let payments: { userId: string; amount: number; currency?: string }[] | undefined;
+        try { if (row.payments) payments = JSON.parse(row.payments); } catch {}
+
+        // Filter splits/payments to known participants (owner + known members)
+        const participantIds = new Set<string>([userId, ...knownUsers.map(u => u.id)]);
+        splits = (splits || []).filter((s) => s && participantIds.has(String(s.userId)));
+        payments = (payments || []).filter((p) => p && participantIds.has(String(p.userId)));
+
+        // Default splits: if none valid, make everyone except payer owe equally; if only owner, owner owes full (no-op)
+        if (!splits || splits.length === 0) {
+          const all = Array.from(participantIds.values());
+          const oweIds = all.filter((id) => id !== createdById);
+          const participants = oweIds.length > 0 ? oweIds : [createdById];
+          const per = amount / participants.length;
+          splits = participants.map((uid) => ({ userId: uid, amount: per }));
+        }
+        const splitSum = Math.round(splits.reduce((s, sp) => s + toCents(sp.amount), 0));
+        if (splitSum !== Math.round(amount * 100)) throw new Error(`Row ${i + 2}: split amounts must sum to total amount`);
+
+        // Default payments: if none valid, payer covers total
+        if (!payments || payments.length === 0) {
+          payments = [{ userId: createdById, amount, currency }];
+        }
+        // Validate payments sum to total (after conversion)
+        let convertedSum = 0;
+        for (const p of payments) {
+          const fromCur = normalizeCurrency(p.currency || currency);
+          const cents = toCents(p.amount);
+          const converted = await convertCents(cents, fromCur, currency, incurredAt);
+          convertedSum += converted;
+        }
+        if (convertedSum !== Math.round(amount * 100)) throw new Error(`Row ${i + 2}: payment amounts must sum to total (after conversion)`);
+
+        const expense = await tx.expense.create({
+          data: {
+            tripId: trip.id,
+            createdById,
+            description,
+            category,
+            expenseType,
+            quantity: quantity ?? 1,
+            unitPriceCents: unitPrice != null ? toCents(unitPrice) : null,
+            amountCents: toCents(amount),
+            currency,
+            incurredAt,
+          },
+        });
+
+        await tx.expenseSplit.createMany({
+          data: splits.map((sp) => ({ expenseId: expense.id, userId: sp.userId, amountCents: toCents(sp.amount) })),
+        });
+        await (tx as any).expensePayment.createMany({
+          data: payments.map((p) => ({ expenseId: expense.id, userId: p.userId, amountCents: toCents(p.amount), currency: normalizeCurrency(p.currency || currency) })),
+        });
+      }
+
+      return trip;
+    });
+
+    return res.json({ trip: { id: created.id, name: created.name, baseCurrency: created.baseCurrency } });
+  } catch (e: any) {
+    return res.status(400).json({ error: e?.message || "Failed to import trip CSV" });
+  }
 });
 
 // Trips owned by current user (profile section)
