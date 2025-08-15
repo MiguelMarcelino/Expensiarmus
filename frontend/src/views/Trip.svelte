@@ -311,15 +311,6 @@
     }
   }
 
-  async function exportTripCsv() {
-    try {
-      await download(`/trips/${tripId}/expenses/export.csv`, `${(tripName || 'trip')}-expenses.csv`);
-      showSuccess('Export started');
-    } catch (e: any) {
-      showError(e.message);
-    }
-  }
-
   async function importTripCsv(ev: Event) {
     const input = ev.target as HTMLInputElement;
     if (!input.files || input.files.length === 0) return;
@@ -983,15 +974,6 @@
           <button class="px-3 py-2 text-sm rounded-t-lg {activeTab==='expenses' ? 'bg-indigo-600 text-white' : ''}" on:click={() => activeTab='expenses'}>Expenses</button>
           <button class="px-3 py-2 text-sm rounded-t-lg {activeTab==='activity' ? 'bg-indigo-600 text-white' : ''}" on:click={() => activeTab='activity'}>Activity</button>
         </div>
-        {#if canEditTrip}
-          <div class="flex items-center gap-2">
-            <button class="px-3 py-1.5 rounded bg-gray-900 text-white text-sm dark:bg-gray-200 dark:text-gray-900" on:click={exportTripCsv} title="Export CSV">Export</button>
-            <label class="px-3 py-1.5 rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 text-sm cursor-pointer" title="Import CSV">
-              {importing ? 'Importing…' : 'Import'}
-              <input type="file" accept=".csv,text/csv" class="hidden" on:change={importTripCsv} />
-            </label>
-          </div>
-        {/if}
       </div>
       {#if activeTab === 'expenses'}
         {#if expenses.length === 0}
