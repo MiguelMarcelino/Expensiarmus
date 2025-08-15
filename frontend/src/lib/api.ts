@@ -113,3 +113,28 @@ export async function apiDelete(path: string) {
   }
   return {} as any;
 }
+
+// Receipt management helpers
+export async function updateExpenseReceipt(expenseId: string, file: File) {
+  const formData = new FormData();
+  formData.append('receipt', file);
+  
+  const res = await fetchAuthed(`/expenses/${expenseId}/receipt`, {
+    method: 'PUT',
+    body: formData,
+  });
+  
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    let data: any = null;
+    if (text) { try { data = JSON.parse(text); } catch {} }
+    const message = extractErrorMessage(data, res.status);
+    throw new Error(message);
+  }
+  
+  return await res.json();
+}
+
+export async function deleteExpenseReceipt(expenseId: string) {
+  return await apiDelete(`/expenses/${expenseId}/receipt`);
+}

@@ -28,6 +28,7 @@
   export let receiptPreviewUrl: string | null = null;
   export let receiptFile: File | null = null;
   export let showReceiptUpload = false;
+  export let showReceiptEdit = false;
   export let scanning = false;
 
   // Button labels
@@ -40,10 +41,13 @@
     receiptPick: void;
     receiptScan: void;
     receiptChange: Event;
+    receiptUpdate: File;
+    receiptDelete: void;
   }>();
 
   let incurredAtEl: HTMLInputElement | null = null;
   let receiptInputEl: HTMLInputElement | null = null;
+  let receiptEditInputEl: HTMLInputElement | null = null;
 
   // Visualization helpers for compact allocation preview (payments)
   const colorPalette: string[] = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#84cc16', '#f472b6', '#a855f7', '#f97316', '#22d3ee'];
@@ -342,8 +346,23 @@
     dispatch('receiptChange', e);
   }
 
+  function onReceiptEditChange(e: Event) {
+    const target = e.target as HTMLInputElement;
+    if (target.files && target.files[0]) {
+      dispatch('receiptUpdate', target.files[0]);
+    }
+  }
+
+  function onPickReceiptEdit() {
+    receiptEditInputEl?.click();
+  }
+
   function onScanReceipt() {
     dispatch('receiptScan');
+  }
+
+  function onDeleteReceipt() {
+    dispatch('receiptDelete');
   }
 
   function handleSubmit() {
@@ -563,6 +582,25 @@
             </svg>
           </div>
         </slot>
+        {#if showReceiptEdit}
+          <div class="absolute top-2 right-2 flex gap-2">
+            <button type="button" class="px-3 py-1.5 text-xs rounded-full bg-white/90 dark:bg-gray-800/90 border border-black/5 dark:border-white/10 shadow hover:shadow" on:click={onPickReceiptEdit} aria-label="Change receipt">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+              </svg>
+            </button>
+            <button type="button" class="px-3 py-1.5 text-xs rounded-full bg-red-50 dark:bg-red-900/50 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 shadow hover:shadow" on:click={onDeleteReceipt} aria-label="Delete receipt">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="m19 6-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"></path>
+                <path d="m10 11 6 6"></path>
+                <path d="m16 11-6 6"></path>
+              </svg>
+            </button>
+          </div>
+          <input type="file" accept="image/*" class="hidden" bind:this={receiptEditInputEl} on:change={onReceiptEditChange} />
+        {/if}
       </div>
     </div>
   </div>

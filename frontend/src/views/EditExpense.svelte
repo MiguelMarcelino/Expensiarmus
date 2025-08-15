@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { api, API_BASE } from '../lib/api';
+  import { api, API_BASE, updateExpenseReceipt, deleteExpenseReceipt } from '../lib/api';
   import { currentUser } from '../lib/auth';
   import type { Member, User, PaymentMode, SplitMode, Expense } from '../lib/types';
   import { showError, showSuccess } from '../lib/alerts';
@@ -41,9 +41,10 @@
   let splitPctByUserId: Record<string, string> = {};
   let selectedSplitUserIdMap: Record<string, boolean> = {};
 
-  // Receipt preview (read-only for now)
+  // Receipt preview and editing
   $: receiptUrl = expenseId ? `${API_BASE}/receipts/${expenseId}` : '';
   let receiptFailed = false;
+  let uploadingReceipt = false;
 
   // Component reference
   let expenseForm: ExpenseForm;
@@ -164,6 +165,37 @@
     }
   }
 
+  async function handleReceiptUpdate(file: File) {
+    if (!expenseId) return;
+    uploadingReceipt = true;
+    try {
+      await updateExpenseReceipt(expenseId, file);
+      showSuccess('Receipt updated.');
+      // Force reload of receipt by updating receiptUrl
+      receiptFailed = false;
+      // Add timestamp to force reload
+      receiptUrl = `${API_BASE}/receipts/${expenseId}?t=${Date.now()}`;
+    } catch (e: any) {
+      showError(e.message);
+    } finally {
+      uploadingReceipt = false;
+    }
+  }
+
+  async function handleReceiptDelete() {
+    if (!expenseId) return;
+    uploadingReceipt = true;
+    try {
+      await deleteExpenseReceipt(expenseId);
+      showSuccess('Receipt deleted.');
+      receiptFailed = true; // This will show the placeholder
+    } catch (e: any) {
+      showError(e.message);
+    } finally {
+      uploadingReceipt = false;
+    }
+  }
+
   async function save() {
     // Force recalculation of payments to ensure they match the total
     expenseForm?.recalcPayments();
@@ -233,10 +265,13 @@
     bind:paidCurrencyByUserId
     bind:selectedSplitUserIdMap
     showReceiptUpload={false}
+    showReceiptEdit={true}
     submitLabel="Save changes"
     cancelHref={`#/trip/${tripId}`}
-    disabled={saveDisabled}
+    disabled={saveDisabled || uploadingReceipt}
     on:submit={save}
+    on:receiptUpdate={(e) => handleReceiptUpdate(e.detail)}
+    on:receiptDelete={handleReceiptDelete}
   >
     <svelte:fragment slot="receipt">
       {#if !receiptFailed}
