@@ -152,7 +152,38 @@
       splitByUserId = allocateByPercent(total, splitPctByUserId, ids);
     } else if (splitMode === 'custom_percentages') {
       splitByUserId = allocateByPercent(total, splitPctByUserId, ids);
+    } else if (splitMode === 'custom_amounts') {
+      // For custom amounts, check if the current splits sum to the total
+      const currentSum = sumStrings(Object.fromEntries(Object.entries(splitByUserId).filter(([id]) => selectedSplitUserIdMap[id])));
+      
+      if (Math.abs(currentSum - total) > 0.01) {
+        // If splits don't sum to total, redistribute proportionally or equally
+        if (currentSum > 0) {
+          // Scale existing splits proportionally to match total
+          const scaleFactor = total / currentSum;
+          for (const id of ids) {
+            if (selectedSplitUserIdMap[id]) {
+              const currentAmount = Number(splitByUserId[id] || '0');
+              splitByUserId[id] = (currentAmount * scaleFactor).toFixed(2);
+            }
+          }
+        } else {
+          // No existing splits, distribute equally
+          const per = ids.length > 0 ? total / ids.length : 0;
+          for (const id of ids) {
+            splitByUserId[id] = per.toFixed(2);
+          }
+        }
+      }
+      
+      // Update percentages to match amounts
+      for (const id of ids) {
+        const amount = Number(splitByUserId[id] || '0');
+        splitPctByUserId[id] = total > 0 ? ((amount * 100) / total).toFixed(2) : '0';
+      }
     }
+    
+    // Clear splits for unselected users
     for (const u of payerOptions) {
       if (!selectedSplitUserIdMap[u.id]) {
         splitByUserId[u.id] = '0';
@@ -241,11 +272,13 @@
       }
     }
     
-    // Update split participants (exclude new payer from owing)
-    const allUsers = members.length > 0 ? members.map((m) => m.user) : (me ? [{ id: me.id, username: me.username }] : []);
-    const participantIds = allUsers.filter((u) => u.id !== payerUserId).map((u) => u.id);
-    selectedSplitUserIdMap = Object.fromEntries(participantIds.map((id) => [id, true]));
-    recalcSplits();
+    // When payer changes, preserve existing splits but ensure payer is not included in splits
+    // Only update the selectedSplitUserIdMap to exclude the new payer, keep all existing splits intact
+    selectedSplitUserIdMap[payerUserId] = false;
+    splitByUserId[payerUserId] = '0';
+    splitPctByUserId[payerUserId] = '0';
+    
+    // No need to recalculate splits - keep existing split amounts unchanged
   }
 
   function onToggleSplitUser(userId: string) {

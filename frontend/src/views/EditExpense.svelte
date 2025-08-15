@@ -165,6 +165,10 @@
   }
 
   async function save() {
+    // Force recalculation of payments to ensure they match the total
+    expenseForm?.recalcPayments();
+    
+    // Don't automatically recalculate splits - preserve user's manual split amounts
     const totalsError = validTotals();
     if (totalsError) { showError(totalsError); return; }
     try {
