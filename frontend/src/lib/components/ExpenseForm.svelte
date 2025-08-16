@@ -255,19 +255,6 @@
       } else if (currentMode === 'custom_percentages') {
         // Keep existing percentages and recalculate amounts
         paidByUserId = allocateByPercent(total, paidPctByUserId, ids);
-      } else if (currentMode === 'custom_amounts') {
-        // Normalize existing amounts to sum to total
-        const currentSum = sumStrings(paidByUserId);
-        if (currentSum > 0) {
-          const scaleFactor = total / currentSum;
-          for (const id of ids) {
-            const currentAmount = Number(paidByUserId[id] || '0');
-            paidByUserId[id] = (currentAmount * scaleFactor).toFixed(2);
-          }
-        } else {
-          // Fall back to payer pays all if no existing amounts
-          paidByUserId = Object.fromEntries(ids.map((id) => [id, id === payerUserId ? total.toFixed(2) : '0']));
-        }
       }
       
       // Ensure all users have currency set after payment adjustments
@@ -414,6 +401,7 @@
     </div>
 
     <div class="mt-2">
+      {#if paymentMode === 'equal' || paymentMode === 'custom_percentages'}
       <div class="mb-2">
         <div class="text-sm font-semibold mb-1">Split among</div>
         <div class="flex flex-wrap gap-2">
@@ -435,42 +423,31 @@
           {/each}
         </div>
       </div>
+      {/if}
 
       <div class="flex items-center justify-between mb-1">
         <div class="text-sm font-semibold">Who pays how much</div>
         <select class="text-xs p-1 rounded-md bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10" bind:value={paymentMode} on:change={() => recalcPayments()}>
-          <option value="payer">Payer covers all</option>
+          <option value="payer">Payer paid upfront</option>
           <option value="equal">Split equally</option>
           <option value="custom_percentages">Custom percentages</option>
-          <option value="custom_amounts">Custom amounts</option>
         </select>
       </div>
-      {#if paymentMode === 'custom_percentages' || paymentMode === 'custom_amounts'}
+      {#if paymentMode === 'custom_percentages'}
         <div class="space-y-1.5">
           {#each payerOptions as u}
             <div class="flex items-center gap-2 py-0.5 min-w-0">
               <span class="w-28 text-sm opacity-80">{u.username}</span>
-              {#if paymentMode === 'custom_percentages'}
-                <div class="flex items-center gap-2 flex-1 min-w-0">
-                  <input type="number" min="0" max="100" step="0.01" class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidPctByUserId[u.id]} on:input={(e) => onPaidPercentInput(u.id, (e.target as HTMLInputElement).value)} />
-                  <span class="text-sm opacity-70">%</span>
-                  <div class="w-full min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{paidByUserId[u.id]}</div>
-                  <select class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidCurrencyByUserId[u.id]}>
-                    {#each currencies as c}
-                      <option value={c}>{c}</option>
-                    {/each}
-                  </select>
-                </div>
-              {:else}
-                <div class="flex items-center gap-2 flex-1 min-w-0">
-                  <input type="number" min="0" step="0.01" class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidByUserId[u.id]} on:input={(e) => paidByUserId[u.id] = (e.target as HTMLInputElement).value} />
-                  <select class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidCurrencyByUserId[u.id]}>
-                    {#each currencies as c}
-                      <option value={c}>{c}</option>
-                    {/each}
-                  </select>
-                </div>
-              {/if}
+              <div class="flex items-center gap-2 flex-1 min-w-0">
+                <input type="number" min="0" max="100" step="0.01" class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidPctByUserId[u.id]} on:input={(e) => onPaidPercentInput(u.id, (e.target as HTMLInputElement).value)} />
+                <span class="text-sm opacity-70">%</span>
+                <div class="w-full min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{paidByUserId[u.id]}</div>
+                <select class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={paidCurrencyByUserId[u.id]}>
+                  {#each currencies as c}
+                    <option value={c}>{c}</option>
+                  {/each}
+                </select>
+              </div>
             </div>
           {/each}
         </div>
@@ -497,50 +474,6 @@
           </div>
         </div>
       {/if}
-
-      <!-- Hiding Who owes -how much for now -->
-    
-      <!-- 
-      <div class="mt-3">
-        <div class="text-sm font-semibold mb-1">Who owes how much</div>
-        <select class="text-xs p-1 rounded-md bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10 mb-2" bind:value={splitMode} on:change={() => recalcSplits()}>
-          <option value="equal">Split equally</option>
-          <option value="custom_percentages">Custom percentages</option>
-          <option value="custom_amounts">Custom amounts</option>
-        </select>
-        {#if splitMode === 'custom_percentages' || splitMode === 'custom_amounts'}
-          <div class="space-y-1.5">
-            {#each payerOptions as u}
-              {#if selectedSplitUserIdMap[u.id]}
-                <div class="flex items-center gap-2 py-0.5 min-w-0">
-                  <span class="w-28 text-sm opacity-80">{u.username}</span>
-                  {#if splitMode === 'custom_percentages'}
-                    <div class="flex items-center gap-2 flex-1 min-w-0">
-                      <input type="number" min="0" max="100" step="0.01" class="w-24 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={splitPctByUserId[u.id]} on:input={(e) => onSplitPercentInput(u.id, (e.target as HTMLInputElement).value)} />
-                      <span class="text-sm opacity-70">%</span>
-                      <div class="w-full min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{splitByUserId[u.id] || '0.00'}</div>
-                    </div>
-                  {:else}
-                    <input type="number" min="0" step="0.01" class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800" bind:value={splitByUserId[u.id]} />
-                  {/if}
-                </div>
-              {/if}
-            {/each}
-          </div>
-        {:else}
-          <div class="space-y-1.5">
-            {#each payerOptions as u}
-              {#if selectedSplitUserIdMap[u.id]}
-                <div class="flex items-center gap-2 py-0.5 min-w-0">
-                  <span class="w-28 text-sm opacity-80">{u.username}</span>
-                  <div class="flex-1 min-w-0 p-2 rounded-lg bg-white dark:bg-gray-800 text-right tabular-nums cursor-default">{splitByUserId[u.id] || '0.00'}</div>
-                </div>
-              {/if}
-            {/each}
-          </div>
-        {/if}
-        <div class="text-xs opacity-70 mt-1">Total splits: {sumStrings(Object.fromEntries(Object.entries(splitByUserId).filter(([id]) => selectedSplitUserIdMap[id]))).toFixed(2)}</div>
-      </div> -->
     </div>
   </div>
 
