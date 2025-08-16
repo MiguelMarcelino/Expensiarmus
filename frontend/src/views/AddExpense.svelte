@@ -245,12 +245,7 @@
       on:click={() => addActiveTab='ai'}>
       <span class="inline-flex items-center gap-1">
         <span>Describe</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M15 4V2a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v2"/>
-          <path d="M7 4h10l1 16H6z"/>
-          <path d="M11 9h2"/>
-          <path d="M11 13h2"/>
-        </svg>
+        <span aria-hidden="true">🪄</span>
       </span>
     </button>
   </div>
