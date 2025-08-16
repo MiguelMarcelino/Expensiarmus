@@ -106,7 +106,7 @@
     <div class="rounded-xl bg-white dark:bg-gray-800 p-6 border border-black/5 dark:border-white/10">
       <div class="text-sm font-semibold opacity-70">Step 2</div>
       <div class="mt-1 font-semibold">Add expenses</div>
-      <p class="mt-2 text-sm opacity-80">Use AI or forms. Attach categories, types, amounts and split fairly.</p>
+      <p class="mt-2 text-sm opacity-80">Describe your expenses in natural language. Attach categories, types, amounts and split fairly.</p>
     </div>
     <div class="rounded-xl bg-white dark:bg-gray-800 p-6 border border-black/5 dark:border-white/10">
       <div class="text-sm font-semibold opacity-70">Step 3</div>
