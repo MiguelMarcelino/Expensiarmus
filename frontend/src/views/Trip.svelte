@@ -87,7 +87,7 @@
   let splitPctByUserId: Record<string, string> = {};
   let paidPctByUserId: Record<string, string> = {};
 
-  // AI form
+  // Rule-based expense parsing form
   let aiInput = '';
 
   // money helper imported from ../lib/money
@@ -610,7 +610,7 @@
       const res = await api('/ai/parse', { method: 'POST', body: JSON.stringify({ input: aiInput, tripId }) });
       if (res.expense?.tripId === tripId) {
         upsertExpense(res.expense as Expense);
-        showSuccess('Expense added from AI.');
+        showSuccess('Expense added from description.');
       }
       aiInput = '';
     } catch (e: any) {

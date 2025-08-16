@@ -22,7 +22,7 @@
       </h1>
       <p class="mt-5 text-lg opacity-80 leading-relaxed">
         Expensiarmus turns messy receipts and group IOUs into clear, shareable summaries. Add expenses
-        in plain English with AI, split fairly, and keep everyone in sync.
+        in plain English with rule-based parsing, split fairly, and keep everyone in sync.
       </p>
       <div class="mt-8 text-sm opacity-70">
         Already using Expensiarmus? Use the header to sign in and jump to your dashboard.
@@ -79,8 +79,8 @@
 <section class="mx-auto max-w-6xl px-6 py-16">
   <div class="grid md:grid-cols-3 gap-6">
     <div class="rounded-2xl border border-black/5 dark:border-white/10 bg-white dark:bg-gray-800 p-6 shadow-sm">
-      <div class="text-indigo-600 dark:text-indigo-400 font-semibold">AI expense entry</div>
-      <p class="mt-2 text-sm opacity-80">Type: "Two flights at 1500 each to my Japan trip" and let AI fill
+      <div class="text-indigo-600 dark:text-indigo-400 font-semibold">Rule-based expense parsing</div>
+      <p class="mt-2 text-sm opacity-80">Type: "Two flights at 1500 each to my Japan trip" and let the parser fill
  the details for you.</p>
     </div>
     <div class="rounded-2xl border border-black/5 dark:border-white/10 bg-white dark:bg-gray-800 p-6 shadow-sm">

@@ -73,7 +73,7 @@ Notes
 }
 ```
 
-## AI Parsing
+## Rule-based Parsing
 
 - Endpoint: `POST /ai/parse` { input, tripId? }
 - Uses an enhanced rule-based parser that runs entirely locally (no external APIs required)

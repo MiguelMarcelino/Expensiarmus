@@ -27,7 +27,7 @@ App will run at http://localhost:5173
 - Pages
   - `Login.svelte`, `Register.svelte`
   - `Dashboard.svelte`: list/create trips
-  - `Trip.svelte`: list expenses, add manual expense, AI entry, add member
+  - `Trip.svelte`: list expenses, add manual expense, parsed expenses, add member
 - Helpers
   - `lib/api.ts`: fetch wrapper with auth headers
   - `lib/auth.ts`: auth store (currentUser) and login/register/logout
@@ -39,7 +39,7 @@ App will run at http://localhost:5173
 - Add members by username
 - Add expenses:
   - Manual: enter description and amount
-  - AI: describe in natural language (fully local parsing, no external APIs required)
+  - Rule-based parsing: describe in natural language (fully local parsing, no external APIs required)
 
 ## Notes
 

@@ -1,17 +1,17 @@
 # Expensiarmus
 
-A simple, clean expense tracking app inspired by Expensify with AI-powered natural language entry. Built with Svelte (Vite) on the frontend and Express + Prisma (SQLite) on the backend.
+A simple, clean expense tracking app with Rule-based expense parsing. Built with Svelte (Vite) on the frontend and Express + Prisma (SQLite) on the backend.
 
 ## Tech Stack
 
 - Frontend: Svelte + Vite + TypeScript, Tailwind CSS
 - Backend: Node.js (Express + TypeScript), Prisma ORM, SQLite
 - Auth: JWT (username + password)
-- AI: Enhanced rule-based parser for natural language expense parsing (fully local, no external APIs)
+- Rule-based Parsing: Enhanced rule-based parser for natural language expense parsing (fully local, no external APIs)
 
 ## Features
 
-- AI expense entry: "Add two flights at 1500 each to my Japan trip" → parsed into category/type/qty/price/total
+- Rule-based expense entry parsing: "Add two flights at 1500 each to my Japan trip" → parsed into category/type/qty/price/total
 - Manual expense entry form
 - Trips and participants (shared expenses)
 - Split expenses among members (default equal split)
@@ -110,7 +110,7 @@ Notes
 - Amounts are stored as integer cents in the DB (e.g., $12.34 → 1234).
 - When `splits` is omitted, expenses default to equal split among members (or the creator if no members).
 
-## AI Parsing
+## Rule-based Parsing
 
 The app uses an enhanced rule-based parser that runs entirely locally to extract expense information from natural language input. No external APIs or internet connection required.
 

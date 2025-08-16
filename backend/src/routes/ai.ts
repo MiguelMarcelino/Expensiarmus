@@ -89,7 +89,7 @@ router.post("/ai/parse", async (req: AuthenticatedRequest, res) => {
     data: participants.map((uid) => ({ expenseId: expense.id, userId: uid, amountCents: toCents(per) })),
   });
 
-  // Record a default payment: creator covers full amount by default for AI-added expenses
+  // Record a default payment: creator covers full amount by default for parsed expenses
   await prisma.expensePayment.create({
     data: { expenseId: expense.id, userId: req.user!.id, amountCents: toCents(amountNum) },
   });

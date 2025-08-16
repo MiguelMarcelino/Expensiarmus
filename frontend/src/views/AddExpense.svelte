@@ -290,10 +290,10 @@
       try {
         const res = await api('/ai/parse', { method: 'POST', body: JSON.stringify({ input: aiInput, tripId }) });
         if (res.expense?.tripId === tripId) {
-          showSuccess('Expense added from AI.');
+          showSuccess('Expense added from description.');
           window.location.hash = `#/trip/${tripId}`;
         } else {
-          showSuccess('AI parsed. Check your trip expenses.');
+          showSuccess('Parsed from description. Check your trip expenses.');
           window.location.hash = `#/trip/${tripId}`;
         }
         aiInput = '';
