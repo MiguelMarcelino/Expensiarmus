@@ -21,11 +21,11 @@
         Track shared trip expenses with ease
       </h1>
       <p class="mt-5 text-lg opacity-80 leading-relaxed">
-        ExpensiArmus turns messy receipts and group IOUs into clear, shareable summaries. Add expenses
+        Expensiarmus turns messy receipts and group IOUs into clear, shareable summaries. Add expenses
         in plain English with AI, split fairly, and keep everyone in sync.
       </p>
       <div class="mt-8 text-sm opacity-70">
-        Already using ExpensiArmus? Use the header to sign in and jump to your dashboard.
+        Already using Expensiarmus? Use the header to sign in and jump to your dashboard.
       </div>
     </div>
 
@@ -122,7 +122,7 @@
     <div>
       <h3 class="text-xl font-bold">Made for groups on the go</h3>
       <p class="mt-2 text-sm opacity-80">Whether it's friends splitting a weekend getaway, colleagues on a business trip,
-        or family holidays—ExpensiArmus keeps everyone's costs transparent.
+        or family holidays—Expensiarmus keeps everyone's costs transparent.
       </p>
       <ul class="mt-4 text-sm space-y-1 opacity-80 list-disc list-inside">
         <li>Mobile-friendly, works great on the go</li>

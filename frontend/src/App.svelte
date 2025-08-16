@@ -18,7 +18,7 @@
 
 <nav class="border-b bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 sticky top-0 z-20 dark:bg-gray-800/60">
   <div class="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
-    <a href={user ? '#/dashboard' : '#/'} class="font-semibold">ExpensiArmus</a>
+    <a href={user ? '#/dashboard' : '#/'} class="font-semibold">Expensiarmus</a>
     <div class="flex items-center gap-3">
       {#if user}
         <a href="#/profile" class="flex items-center gap-2 group">

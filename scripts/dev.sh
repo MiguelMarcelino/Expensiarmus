@@ -96,7 +96,7 @@ start_frontend() {
   echo "Frontend starting; check logs for URL (typically http://localhost:5173)."
 }
 
-bold "ExpensiArmus: Dev setup & run"
+bold "Expensiarmus: Dev setup & run"
 ensure_backend_env
 ensure_frontend_env
 start_backend

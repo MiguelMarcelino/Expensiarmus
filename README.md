@@ -1,4 +1,4 @@
-# ExpensiArmus
+# Expensiarmus
 
 A simple, clean expense tracking app inspired by Expensify with AI-powered natural language entry. Built with Svelte (Vite) on the frontend and Express + Prisma (SQLite) on the backend.
 
