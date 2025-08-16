@@ -4,6 +4,7 @@
   import { currentUser } from '../lib/auth';
   import type { User } from '../lib/types';
   import { showError, showSuccess } from '../lib/alerts';
+  import ConfirmationDialog from '../lib/components/ConfirmationDialog.svelte';
 
   let me: User | null = null;
   const unsub = currentUser.subscribe((u) => (me = u));
@@ -27,8 +28,8 @@
   let showImportModal = false;
   let newTripName: string = '';
   let importFile: File | null = null;
-  let confirmDeleteTripId: string | null = null;
-  let confirmDeleteTripName: string = '';
+  let showDeleteTripDialog = false;
+  let deleteTripData: { id: string; name: string } | null = null;
   let openMenuForTripId: string | null = null;
 
   async function load() {
@@ -120,15 +121,17 @@
     }
   }
 
-  async function confirmDeleteTrip(tripId: string, tripName: string) {
-    confirmDeleteTripId = tripId;
-    confirmDeleteTripName = tripName;
+  function confirmDeleteTrip(tripId: string, tripName: string) {
+    deleteTripData = { id: tripId, name: tripName };
+    showDeleteTripDialog = true;
   }
 
   async function deleteTripNow() {
-    if (!confirmDeleteTripId) return;
-    const id = confirmDeleteTripId;
-    confirmDeleteTripId = null;
+    if (!deleteTripData) return;
+    const id = deleteTripData.id;
+    showDeleteTripDialog = false;
+    deleteTripData = null;
+    
     try {
       await apiDelete(`/trips/${id}`);
       ownedTrips = ownedTrips.filter((t) => t.id !== id);
@@ -136,6 +139,11 @@
     } catch (e: any) {
       showError(e.message);
     }
+  }
+
+  function cancelDeleteTrip() {
+    showDeleteTripDialog = false;
+    deleteTripData = null;
   }
 
   function triggerImportInput(tripId: string) {
@@ -372,19 +380,17 @@
     </div>
   {/if}
 
-  {#if confirmDeleteTripId}
-    <div class="fixed inset-0 z-50 flex items-center justify-center">
-      <button class="absolute inset-0 bg-black/50" on:click={() => (confirmDeleteTripId = null)} aria-label="Close delete dialog"></button>
-      <div class="relative w-full max-w-md mx-4 rounded-2xl border border-black/5 dark:border-white/10 bg-white dark:bg-gray-800 p-6 shadow-xl">
-        <h3 class="font-semibold mb-4">Delete trip</h3>
-        <p class="text-sm opacity-80 mb-4">Delete "{confirmDeleteTripName}" and all its expenses? This cannot be undone.</p>
-        <div class="flex justify-end gap-2">
-          <button class="px-3 py-1.5 rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 text-sm" on:click={() => (confirmDeleteTripId = null)}>Cancel</button>
-          <button class="px-3 py-1.5 rounded bg-red-600 text-white text-sm" on:click={deleteTripNow}>Delete</button>
-        </div>
-      </div>
-    </div>
-  {/if}
+<!-- Delete Trip Confirmation Dialog -->
+<ConfirmationDialog
+  open={showDeleteTripDialog}
+  title="Delete Trip"
+  message="Delete <strong>{deleteTripData?.name || ''}</strong> and all its expenses? This cannot be undone."
+  confirmText="Delete"
+  cancelText="Cancel"
+  danger={true}
+  on:confirm={deleteTripNow}
+  on:cancel={cancelDeleteTrip}
+/>
 </section>
 
 <style>

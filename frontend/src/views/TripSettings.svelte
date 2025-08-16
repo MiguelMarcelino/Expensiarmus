@@ -4,6 +4,7 @@
   import { currentUser } from '../lib/auth';
   import { showError, showSuccess } from '../lib/alerts';
   import AddMemberSpotlight from '../lib/components/AddMemberSpotlight.svelte';
+  import ConfirmationDialog from '../lib/components/ConfirmationDialog.svelte';
   import type { Member, User } from '../lib/types';
   import { currencies } from '../lib/constants/currencies';
 
@@ -24,8 +25,9 @@
   let editTripName = '';
   let editingCurrency = false;
   let editCurrency = '';
-  let confirmRemoveMember: { id: string; username: string } | null = null;
-  let confirmDeleteTrip = false;
+  let showRemoveMemberDialog = false;
+  let removeMemberData: { id: string; username: string } | null = null;
+  let showDeleteTripDialog = false;
 
   $: canEdit = !!me && owner && me.id === owner.id;
 
@@ -56,28 +58,36 @@
     const member = members.find(m => m.user.id === userId);
     if (!member) return;
 
-    confirmRemoveMember = { id: userId, username: member.user.username };
+    removeMemberData = { id: userId, username: member.user.username };
+    showRemoveMemberDialog = true;
   }
 
-  async function confirmRemoveMemberAction() {
-    if (!confirmRemoveMember) return;
+  async function confirmRemoveMember() {
+    if (!removeMemberData) return;
 
     try {
-      const response = await api(`/trips/${tripId}/members/${confirmRemoveMember.id}`, { method: 'DELETE' });
+      const response = await api(`/trips/${tripId}/members/${removeMemberData.id}`, { method: 'DELETE' });
       members = response.members || [];
-      showSuccess(`${confirmRemoveMember.username} has been removed from the trip`);
+      showSuccess(`${removeMemberData.username} has been removed from the trip`);
     } catch (e: any) {
       showError(e.message || 'Failed to remove member');
     } finally {
-      confirmRemoveMember = null;
+      showRemoveMemberDialog = false;
+      removeMemberData = null;
     }
   }
 
   function cancelRemoveMember() {
-    confirmRemoveMember = null;
+    showRemoveMemberDialog = false;
+    removeMemberData = null;
   }
 
-  async function deleteTrip() {
+  function showDeleteTripConfirmation() {
+    if (!canEdit) return;
+    showDeleteTripDialog = true;
+  }
+
+  async function confirmDeleteTrip() {
     if (!canEdit) return;
     try {
       await apiDelete(`/trips/${tripId}`);
@@ -86,8 +96,12 @@
     } catch (e: any) {
       showError(e.message || 'Failed to delete trip');
     } finally {
-      confirmDeleteTrip = false;
+      showDeleteTripDialog = false;
     }
+  }
+
+  function cancelDeleteTrip() {
+    showDeleteTripDialog = false;
   }
 
   async function saveTripName() {
@@ -369,7 +383,7 @@
                     Once you delete a trip, there is no going back. This will permanently delete the trip and all associated expenses.
                   </p>
                   <button
-                    on:click={() => confirmDeleteTrip = true}
+                    on:click={showDeleteTripConfirmation}
                     class="mt-3 inline-flex items-center px-3 py-2 border border-red-300 dark:border-red-500/30 rounded-lg text-sm font-medium text-red-700 dark:text-red-400 bg-white/70 dark:bg-gray-800/60 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
                   >
                     Delete Trip
@@ -382,46 +396,29 @@
       </div>
     {/if}
 
-<!-- Delete Trip Confirmation Modal -->
-{#if confirmDeleteTrip}
-  <div class="fixed inset-0 z-40 flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-black/40" role="button" tabindex="0" on:click={() => confirmDeleteTrip = false} on:keydown={(e) => ((e as KeyboardEvent).key === 'Escape') && (confirmDeleteTrip = false)}></div>
-    <div class="relative z-50 w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10 shadow-lg p-5">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="font-semibold">Delete Trip</h3>
-        <button class="px-2 py-1 text-sm rounded-md border border-black/5 dark:border-white/10" on:click={() => confirmDeleteTrip = false}>Close</button>
-      </div>
-      <p class="text-sm opacity-80 mb-4">
-        This will permanently delete <strong>{tripName}</strong> and all its expenses. This action cannot be undone.
-      </p>
-      <div class="flex items-center justify-end gap-2">
-        <button class="px-3 py-2 rounded-md border border-black/5 dark:border-white/10" on:click={() => confirmDeleteTrip = false}>Cancel</button>
-        <button class="px-3 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors" on:click={deleteTrip}>Delete</button>
-      </div>
-    </div>
-  </div>
-{/if}
+<!-- Delete Trip Confirmation Dialog -->
+<ConfirmationDialog
+  open={showDeleteTripDialog}
+  title="Delete Trip"
+  message="This will permanently delete <strong>{tripName}</strong> and all its expenses. This action cannot be undone."
+  confirmText="Delete"
+  cancelText="Cancel"
+  danger={true}
+  on:confirm={confirmDeleteTrip}
+  on:cancel={cancelDeleteTrip}
+/>
 
-<!-- Remove Member Confirmation Modal -->
-{#if confirmRemoveMember}
-  <div class="fixed inset-0 z-40 flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-black/40" role="button" tabindex="0" on:click={cancelRemoveMember} on:keydown={(e) => ((e as KeyboardEvent).key === 'Escape') && cancelRemoveMember()}></div>
-    <div class="relative z-50 w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10 shadow-lg p-5">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="font-semibold">Remove Member</h3>
-        <button class="px-2 py-1 text-sm rounded-md border border-black/5 dark:border-white/10" on:click={cancelRemoveMember}>Close</button>
-      </div>
-      <p class="text-sm opacity-80 mb-4">
-        Are you sure you want to remove <strong>{confirmRemoveMember.username}</strong> from this trip? 
-        This action cannot be undone.
-      </p>
-      <div class="flex items-center justify-end gap-2">
-        <button class="px-3 py-2 rounded-md border border-black/5 dark:border-white/10" on:click={cancelRemoveMember}>Cancel</button>
-        <button class="px-3 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors" on:click={confirmRemoveMemberAction}>Remove</button>
-      </div>
-    </div>
-  </div>
-{/if}
+<!-- Remove Member Confirmation Dialog -->
+<ConfirmationDialog
+  open={showRemoveMemberDialog}
+  title="Remove Member"
+  message="Are you sure you want to remove <strong>{removeMemberData?.username || ''}</strong> from this trip? This action cannot be undone."
+  confirmText="Remove"
+  cancelText="Cancel"
+  danger={true}
+  on:confirm={confirmRemoveMember}
+  on:cancel={cancelRemoveMember}
+/>
 
 <!-- Add Member Modal -->
 <AddMemberSpotlight

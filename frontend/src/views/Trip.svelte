@@ -7,6 +7,7 @@
   import BalancesCard from '../lib/components/BalancesCard.svelte';
   import ActivityList from '../lib/components/ActivityList.svelte';
   import AddMemberSpotlight from '../lib/components/AddMemberSpotlight.svelte';
+  import ConfirmationDialog from '../lib/components/ConfirmationDialog.svelte';
   import type { Member, Expense, ActivityEvent, SplitMode, PaymentMode, User } from '../lib/types';
   import { centsToString } from '../lib/money';
   import { showError, showSuccess } from '../lib/alerts';
@@ -417,17 +418,24 @@
   }
 
   // ----- Delete expense -----
-  // Delete confirmation banner state
-  let confirmDeleteId: string | null = null;
-  let confirmDeleteText: string = '';
+  // Delete confirmation dialog state
+  let showDeleteDialog = false;
+  let deleteExpenseId: string | null = null;
+  let deleteExpenseLabel: string = '';
+  
   function requestDelete(expenseId: string, label: string) {
-    confirmDeleteId = expenseId;
-    confirmDeleteText = `Delete "${label}"? This cannot be undone.`;
+    deleteExpenseId = expenseId;
+    deleteExpenseLabel = label;
+    showDeleteDialog = true;
   }
-  async function performDelete() {
-    if (!confirmDeleteId) return;
-    const id = confirmDeleteId;
-    confirmDeleteId = null;
+  
+  async function confirmDelete() {
+    if (!deleteExpenseId) return;
+    const id = deleteExpenseId;
+    showDeleteDialog = false;
+    deleteExpenseId = null;
+    deleteExpenseLabel = '';
+    
     try {
       await api(`/expenses/${id}`, { method: 'DELETE' });
       expenses = expenses.filter((e) => e.id !== id);
@@ -446,7 +454,12 @@
       showError(e.message);
     }
   }
-  function cancelDelete() { confirmDeleteId = null; }
+  
+  function cancelDelete() {
+    showDeleteDialog = false;
+    deleteExpenseId = null;
+    deleteExpenseLabel = '';
+  }
 
   // ----- Allocation helpers (amounts/percentages) -----
   function initializeAllocations() {
@@ -853,20 +866,17 @@
 
 
 
-{#if confirmDeleteId}
-  <div class="fixed bottom-4 left-0 right-0 z-30 px-4">
-    <div class="max-w-2xl mx-auto rounded-2xl border border-red-500/30 bg-red-50 dark:bg-red-900/30 text-red-800 dark:text-red-100 shadow backdrop-blur p-4 flex items-center justify-between gap-3">
-      <div class="flex items-center gap-2">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>
-        <span class="text-sm">{confirmDeleteText}</span>
-      </div>
-      <div class="flex items-center gap-2">
-        <button class="px-3 py-1.5 rounded-md text-sm border border-black/5 dark:border-white/10" on:click={cancelDelete}>Cancel</button>
-        <button class="px-3 py-1.5 rounded-md text-sm bg-red-600 text-white" on:click={performDelete}>Delete</button>
-      </div>
-    </div>
-  </div>
-{/if}
+<!-- Delete Expense Confirmation Dialog -->
+<ConfirmationDialog
+  open={showDeleteDialog}
+  title="Delete Expense"
+  message="Delete <strong>{deleteExpenseLabel}</strong>? This cannot be undone."
+  confirmText="Delete"
+  cancelText="Cancel"
+  danger={true}
+  on:confirm={confirmDelete}
+  on:cancel={cancelDelete}
+/>
 
 <!-- Floating Speed Dial -->
 {#if showFabMenu}
