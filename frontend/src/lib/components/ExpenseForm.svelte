@@ -460,7 +460,7 @@
       <div class="flex items-center justify-between mb-1">
         <div class="text-sm font-semibold">Who pays how much</div>
         <select class="text-xs p-1 rounded-md bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10" bind:value={paymentMode} on:change={() => { recalcPayments(); recalcSplits(); }}>
-          <option value="payer">Payer paid upfront</option>
+          <option value="payer">Payer pays alone</option>
           <option value="equal">Split equally</option>
           <option value="custom_percentages">Custom percentages</option>
         </select>
