@@ -6,12 +6,16 @@
     "dev": "nodemon",
     "build": "tsc",
     "start": "node dist/server.js",
+    "build:production": "npm run prisma:generate:production && npm run build",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:ci": "jest --ci --coverage --watchAll=false",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev --name init"
+    "prisma:generate:production": "prisma generate --schema=prisma/schema.production.prisma",
+    "prisma:migrate": "prisma migrate dev --name init",
+    "prisma:migrate:production": "prisma migrate deploy --schema=prisma/schema.production.prisma",
+    "prisma:studio:production": "prisma studio --schema=prisma/schema.production.prisma"
   },
   "keywords": [],
   "author": "",

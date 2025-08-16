@@ -12,7 +12,16 @@ import { requireAuth } from "./middleware/auth";
 import { scheduleDailyRatesUpdate } from "./utils/ratesUpdater";
 
 const app = express();
-app.use(cors());
+
+// Configure CORS for production
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production' 
+    ? process.env.CORS_ORIGIN || 'https://expensiarmus.vercel.app'
+    : true, // Allow all origins in development
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 // Back-compat: serve existing uploaded files if any
 app.use("/uploads", express.static(path.resolve(__dirname, "..", "uploads")));
