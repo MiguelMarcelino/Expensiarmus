@@ -244,7 +244,7 @@
     <button class="px-3 py-2 text-sm rounded-t-lg {addActiveTab==='ai' ? 'bg-indigo-600 text-white' : ''}"
       on:click={() => addActiveTab='ai'}>
       <span class="inline-flex items-center gap-1">
-        <span>AI</span>
+        <span>Describe</span>
         <span aria-hidden="true">✨</span>
       </span>
     </button>
