@@ -346,6 +346,66 @@ router.put("/trips/:tripId", async (req: AuthenticatedRequest, res) => {
   res.json({ trip: { id: updated.id, name: updated.name, baseCurrency: updated.baseCurrency } });
 });
 
+// Remove a member from a trip (owner-only)
+router.delete("/trips/:tripId/members/:userId", async (req: AuthenticatedRequest, res) => {
+  const paramsSchema = z.object({ tripId: z.string(), userId: z.string() });
+  const params = paramsSchema.safeParse(req.params);
+  if (!params.success) return res.status(400).json({ error: params.error.flatten() });
+  const { tripId, userId } = params.data;
+  const requesterId = req.user!.id;
+
+  const trip = await prisma.trip.findUnique({ where: { id: tripId } });
+  if (!trip) return res.status(404).json({ error: "Trip not found" });
+  if (trip.ownerId !== requesterId) return res.status(403).json({ error: "Only owner can remove members" });
+  
+  // Cannot remove the owner
+  if (userId === trip.ownerId) return res.status(400).json({ error: "Cannot remove trip owner" });
+
+  // Check if user is actually a member
+  const membership = await prisma.tripMember.findUnique({
+    where: { tripId_userId: { tripId, userId } }
+  });
+  if (!membership) return res.status(404).json({ error: "User is not a member of this trip" });
+
+  // Check if the user has any expenses or splits in this trip
+  const userExpenses = await prisma.expense.count({
+    where: { tripId, createdById: userId }
+  });
+  const userSplits = await prisma.expenseSplit.count({
+    where: { userId, expense: { tripId } }
+  });
+  const userPayments = await prisma.expensePayment.count({
+    where: { userId, expense: { tripId } }
+  });
+
+  if (userExpenses > 0 || userSplits > 0 || userPayments > 0) {
+    return res.status(400).json({ 
+      error: "Cannot remove member who has expenses, splits, or payments in this trip" 
+    });
+  }
+
+  // Remove the member
+  await prisma.tripMember.delete({
+    where: { tripId_userId: { tripId, userId } }
+  });
+
+  // Return updated member list
+  const members = await prisma.tripMember.findMany({
+    where: { tripId },
+    include: { user: { select: { id: true, username: true, email: true } } },
+    orderBy: { user: { username: "asc" } },
+  });
+  
+  const transformedMembers = members.map(member => ({
+    user: {
+      ...member.user,
+      joinedAt: member.joinedAt
+    }
+  }));
+  
+  res.json({ members: transformedMembers });
+});
+
 // Delete a trip (owner-only)
 router.delete("/trips/:tripId", async (req: AuthenticatedRequest, res) => {
   const paramsSchema = z.object({ tripId: z.string() });

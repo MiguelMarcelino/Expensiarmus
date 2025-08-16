@@ -35,7 +35,7 @@
   let importing = false;
   let showAddMember = false;
   let showFabMenu = false;
-  let confirmDeleteTrip = false;
+
 
   // manual form
   let description = '';
@@ -724,18 +724,7 @@
     editTripName = '';
   }
 
-  async function deleteTrip() {
-    if (!tripId) return;
-    try {
-      await apiDelete(`/trips/${tripId}`);
-      showSuccess('Trip deleted');
-      window.location.hash = '#/dashboard';
-    } catch (e: any) {
-      showError(e.message);
-    } finally {
-      confirmDeleteTrip = false;
-    }
-  }
+
 
   // Removed old inline expense editor; use dedicated page instead
 </script>
@@ -773,9 +762,9 @@
                     <button class="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/10" title="Rename trip" aria-label="Rename trip" on:click={() => { editingTripName = true; editTripName = tripName; }}>
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4Z"/></svg>
                     </button>
-                    <button class="p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600" title="Delete trip" aria-label="Delete trip" on:click={() => { confirmDeleteTrip = true; }}>
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>
-                    </button>
+                    <a href="#/trip/{tripId}/settings" class="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/10" title="Trip settings" aria-label="Trip settings">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </a>
                   {/if}
                 {/if}
               </div>
@@ -862,22 +851,7 @@
 
 <!-- Old inline expense editor removed; editing is done in dedicated page -->
 
-{#if confirmDeleteTrip && canEditTrip}
-  <div class="fixed inset-0 z-40 flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-black/40" role="button" tabindex="0" on:click={() => (confirmDeleteTrip = false)} on:keydown={(e) => ((e as KeyboardEvent).key === 'Escape') && (confirmDeleteTrip = false)}></div>
-    <div class="relative z-50 w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10 shadow-lg p-5">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="font-semibold">Delete trip</h3>
-        <button class="px-2 py-1 text-sm rounded-md border border-black/5 dark:border-white/10" on:click={() => (confirmDeleteTrip = false)}>Close</button>
-      </div>
-      <p class="text-sm opacity-80 mb-4">This will permanently delete the trip and all its expenses. This action cannot be undone.</p>
-      <div class="flex items-center justify-end gap-2">
-        <button class="px-3 py-2 rounded-md border border-black/5 dark:border-white/10" on:click={() => (confirmDeleteTrip = false)}>Cancel</button>
-        <button class="px-3 py-2 rounded-md bg-red-600 text-white" on:click={deleteTrip}>Delete</button>
-      </div>
-    </div>
-  </div>
-{/if}
+
 
 {#if confirmDeleteId}
   <div class="fixed bottom-4 left-0 right-0 z-30 px-4">

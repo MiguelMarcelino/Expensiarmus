@@ -7,6 +7,7 @@ import Trip from './views/Trip.svelte';
 import Profile from './views/Profile.svelte';
 import AddExpense from './views/AddExpense.svelte';
 import EditExpense from './views/EditExpense.svelte';
+import TripSettings from './views/TripSettings.svelte';
 
 const routes = {
   '/': Landing,
@@ -14,6 +15,7 @@ const routes = {
   '/register': Register,
   '/dashboard': Dashboard,
   '/trip/:id': Trip,
+  '/trip/:id/settings': TripSettings,
   '/trip/:id/add-expense': AddExpense,
   '/trip/:id/expense/:expenseId': EditExpense,
   '/profile': Profile,
