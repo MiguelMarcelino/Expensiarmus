@@ -149,49 +149,74 @@
 
   export function recalcSplits() {
     const total = Number(amount) || 0;
-    const ids = splitParticipants.map((u) => u.id);
-    if (splitMode === 'equal') {
-      const equalPct = ids.length > 0 ? (100 / ids.length) : 0;
-      splitPctByUserId = Object.fromEntries(ids.map((id) => [id, equalPct.toFixed(2)]));
-      splitByUserId = allocateByPercent(total, splitPctByUserId, ids);
-    } else if (splitMode === 'custom_percentages') {
-      splitByUserId = allocateByPercent(total, splitPctByUserId, ids);
-    } else if (splitMode === 'custom_amounts') {
-      // For custom amounts, check if the current splits sum to the total
-      const currentSum = sumStrings(Object.fromEntries(Object.entries(splitByUserId).filter(([id]) => selectedSplitUserIdMap[id])));
-      
-      if (Math.abs(currentSum - total) > 0.01) {
-        // If splits don't sum to total, redistribute proportionally or equally
-        if (currentSum > 0) {
-          // Scale existing splits proportionally to match total
-          const scaleFactor = total / currentSum;
-          for (const id of ids) {
-            if (selectedSplitUserIdMap[id]) {
-              const currentAmount = Number(splitByUserId[id] || '0');
-              splitByUserId[id] = (currentAmount * scaleFactor).toFixed(2);
-            }
-          }
-        } else {
-          // No existing splits, distribute equally
-          const per = ids.length > 0 ? total / ids.length : 0;
-          for (const id of ids) {
-            splitByUserId[id] = per.toFixed(2);
+    const allIds = payerOptions.map((u) => u.id);
+    
+    if (paymentMode === 'payer') {
+      // For "Payer paid upfront" mode, only the payer owes themselves (personal expense)
+      splitByUserId = Object.fromEntries(allIds.map((id) => [id, id === payerUserId ? total.toFixed(2) : '0']));
+      splitPctByUserId = Object.fromEntries(allIds.map((id) => [id, id === payerUserId ? '100' : '0']));
+      // Update selectedSplitUserIdMap to reflect that only the payer is involved
+      selectedSplitUserIdMap = Object.fromEntries(allIds.map((id) => [id, id === payerUserId]));
+    } else {
+      // For shared expenses (equal or custom_percentages), use normal split logic
+      // If switching from 'payer' mode and no one is selected for splitting (except payer), 
+      // restore default selection (everyone except payer)
+      const currentlySelected = Object.entries(selectedSplitUserIdMap).filter(([id, selected]) => selected && id !== payerUserId);
+      if (currentlySelected.length === 0) {
+        // Restore default: everyone except the payer
+        for (const u of payerOptions) {
+          if (u.id !== payerUserId) {
+            selectedSplitUserIdMap[u.id] = true;
+          } else {
+            selectedSplitUserIdMap[u.id] = false;
           }
         }
       }
       
-      // Update percentages to match amounts
-      for (const id of ids) {
-        const amount = Number(splitByUserId[id] || '0');
-        splitPctByUserId[id] = total > 0 ? ((amount * 100) / total).toFixed(2) : '0';
+      const ids = splitParticipants.map((u) => u.id);
+      if (splitMode === 'equal') {
+        const equalPct = ids.length > 0 ? (100 / ids.length) : 0;
+        splitPctByUserId = Object.fromEntries(ids.map((id) => [id, equalPct.toFixed(2)]));
+        splitByUserId = allocateByPercent(total, splitPctByUserId, ids);
+      } else if (splitMode === 'custom_percentages') {
+        splitByUserId = allocateByPercent(total, splitPctByUserId, ids);
+      } else if (splitMode === 'custom_amounts') {
+        // For custom amounts, check if the current splits sum to the total
+        const currentSum = sumStrings(Object.fromEntries(Object.entries(splitByUserId).filter(([id]) => selectedSplitUserIdMap[id])));
+        
+        if (Math.abs(currentSum - total) > 0.01) {
+          // If splits don't sum to total, redistribute proportionally or equally
+          if (currentSum > 0) {
+            // Scale existing splits proportionally to match total
+            const scaleFactor = total / currentSum;
+            for (const id of ids) {
+              if (selectedSplitUserIdMap[id]) {
+                const currentAmount = Number(splitByUserId[id] || '0');
+                splitByUserId[id] = (currentAmount * scaleFactor).toFixed(2);
+              }
+            }
+          } else {
+            // No existing splits, distribute equally
+            const per = ids.length > 0 ? total / ids.length : 0;
+            for (const id of ids) {
+              splitByUserId[id] = per.toFixed(2);
+            }
+          }
+        }
+        
+        // Update percentages to match amounts
+        for (const id of ids) {
+          const amount = Number(splitByUserId[id] || '0');
+          splitPctByUserId[id] = total > 0 ? ((amount * 100) / total).toFixed(2) : '0';
+        }
       }
-    }
-    
-    // Clear splits for unselected users
-    for (const u of payerOptions) {
-      if (!selectedSplitUserIdMap[u.id]) {
-        splitByUserId[u.id] = '0';
-        splitPctByUserId[u.id] = '0';
+      
+      // Clear splits for unselected users
+      for (const u of payerOptions) {
+        if (!selectedSplitUserIdMap[u.id]) {
+          splitByUserId[u.id] = '0';
+          splitPctByUserId[u.id] = '0';
+        }
       }
     }
   }
@@ -427,7 +452,7 @@
 
       <div class="flex items-center justify-between mb-1">
         <div class="text-sm font-semibold">Who pays how much</div>
-        <select class="text-xs p-1 rounded-md bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10" bind:value={paymentMode} on:change={() => recalcPayments()}>
+        <select class="text-xs p-1 rounded-md bg-white dark:bg-gray-800 border border-black/5 dark:border-white/10" bind:value={paymentMode} on:change={() => { recalcPayments(); recalcSplits(); }}>
           <option value="payer">Payer paid upfront</option>
           <option value="equal">Split equally</option>
           <option value="custom_percentages">Custom percentages</option>
