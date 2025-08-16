@@ -2,24 +2,52 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../prisma";
 import { AuthenticatedRequest } from "../middleware/auth";
-import { enhancedExpenseParser, toCents, type ParsedExpense } from "../utils/expenseParser";
+import { enhancedExpenseParser, toCents, type ParsedExpense, type TripContext } from "../utils/expenseParser";
 
 const router = Router();
 
-const inputSchema = z.object({ input: z.string().min(5) });
+const inputSchema = z.object({ 
+  input: z.string().min(5),
+  tripId: z.string().optional(),
+});
 
 router.post("/ai/parse", async (req: AuthenticatedRequest, res) => {
   const parse = inputSchema.safeParse(req.body);
   if (!parse.success) return res.status(400).json({ error: parse.error.flatten() });
-  const { input } = parse.data;
+  const { input, tripId } = parse.data;
 
-  const ai = enhancedExpenseParser(input);
+  // Fetch trip context if tripId provided
+  let tripContext: TripContext | undefined;
+  if (tripId) {
+    const trip = await prisma.trip.findFirst({
+      where: {
+        id: tripId,
+        OR: [{ ownerId: req.user!.id }, { members: { some: { userId: req.user!.id } } }],
+      },
+      include: {
+        members: true,
+      },
+    });
+    
+    if (trip) {
+      tripContext = {
+        id: trip.id,
+        name: trip.name,
+        memberCount: trip.members.length + 1, // +1 for owner
+      };
+    }
+  }
+
+  const ai = enhancedExpenseParser(input, tripContext);
   if (!ai.amount && ai.quantity && ai.unitPrice) {
     ai.amount = ai.quantity * ai.unitPrice;
   }
   if (!ai.amount) return res.status(400).json({ error: "Could not parse amount" });
 
-  let trip = ai.tripName
+  // Use context trip first, then try to find/create based on parsed trip name
+  let trip = tripContext?.id 
+    ? await prisma.trip.findUnique({ where: { id: tripContext.id } })
+    : ai.tripName
     ? await prisma.trip.findFirst({
         where: {
           name: ai.tripName,
@@ -27,6 +55,7 @@ router.post("/ai/parse", async (req: AuthenticatedRequest, res) => {
         },
       })
     : null;
+    
   if (!trip && ai.tripName) {
     trip = await prisma.trip.create({ data: { name: ai.tripName, ownerId: req.user!.id } });
   }

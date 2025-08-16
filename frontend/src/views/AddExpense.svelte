@@ -288,7 +288,7 @@
     <textarea class="w-full p-2 rounded-lg bg-white dark:bg-gray-800" rows="5" placeholder="Describe the expense..." bind:value={aiInput}></textarea>
     <button class="w-full py-2 rounded-lg bg-purple-600 text-white disabled:opacity-60 disabled:cursor-not-allowed" on:click={async () => {
       try {
-        const res = await api('/ai/parse', { method: 'POST', body: JSON.stringify({ input: aiInput }) });
+        const res = await api('/ai/parse', { method: 'POST', body: JSON.stringify({ input: aiInput, tripId }) });
         if (res.expense?.tripId === tripId) {
           showSuccess('Expense added from AI.');
           window.location.hash = `#/trip/${tripId}`;
@@ -301,7 +301,7 @@
         showError(e.message);
       }
     }} disabled={!aiInput.trim()}>Parse & Add</button>
-    <p class="text-xs opacity-70">Example: "I want to register an expense for my trip to Japan. I just bought two flights at 1500 each and need you to add that to my Japan trip."</p>
+    <p class="text-xs opacity-70">Example: "Book a flight to Tokyo for 1500"</p>
   </div>
   {/if}
 </section>

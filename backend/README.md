@@ -75,11 +75,13 @@ Notes
 
 ## AI Parsing
 
-- Endpoint: `POST /ai/parse` { input }
+- Endpoint: `POST /ai/parse` { input, tripId? }
 - Uses an enhanced rule-based parser that runs entirely locally (no external APIs required)
 - Supports multiple currencies (USD, EUR, GBP, etc.) and various input patterns
+- **Context-aware**: When `tripId` is provided, the parser uses current trip information for better accuracy
 - The endpoint will:
   - Extract trip name, expense type, quantity, unit price, and total amount
+  - Use trip context (name, member count) to improve parsing accuracy
   - Find or create a trip (if a trip name is present)
   - Create an expense on that trip
   - Create default equal splits among members (or creator if no members)
@@ -89,6 +91,11 @@ Notes
 - "Hotel for 3 nights at 120 EUR each"
 - "Two train tickets at 25 each for my Japan trip"
 - "€200 for shopping"
+
+**Context-aware features:**
+- "Flight for $450" → automatically uses current trip name
+- "Dinner for everyone" → uses actual member count for quantity
+- "Taxi for the group total 45" → splits based on group size
 
 Example input
 ```

@@ -7,38 +7,52 @@ export type ParsedExpense = {
   amount?: number;
 };
 
+export type TripContext = {
+  id?: string;
+  name?: string;
+  memberCount?: number;
+};
+
 /**
  * Enhanced rule-based expense parser that extracts structured data from natural language input.
  * Runs entirely locally without requiring external APIs.
  * 
  * @param input - Natural language description of an expense
+ * @param context - Optional trip context to improve parsing accuracy
  * @returns ParsedExpense object with extracted fields
  * 
  * @example
  * ```typescript
- * const result = enhancedExpenseParser("Flight to Tokyo for $450");
- * // Returns: { expenseType: "Flight", amount: 450, quantity: 1, unitPrice: 450, description: "..." }
+ * const result = enhancedExpenseParser("Flight for $450", { name: "Tokyo Trip", memberCount: 2 });
+ * // Returns: { tripName: "Tokyo Trip", expenseType: "Flight", amount: 450, quantity: 1, unitPrice: 450, description: "..." }
  * ```
  */
-export function enhancedExpenseParser(input: string): ParsedExpense {
+export function enhancedExpenseParser(input: string, context?: TripContext): ParsedExpense {
   const lower = input.toLowerCase();
   const original = input;
 
-  // Enhanced trip name extraction
-  const tripPatterns = [
-    /(trip to|traveling to|visiting)\s+([a-zA-Z\s]{2,15})/i,
-    /(my|our)\s+([a-zA-Z\s]{2,15})\s+(trip|vacation|holiday)/i,
-    /(vacation in|holiday in)\s+([a-zA-Z\s]{2,15})/i,
-  ];
-  
+  // Enhanced trip name extraction with context priority
   let tripName: string | undefined;
-  for (const pattern of tripPatterns) {
-    const match = pattern.exec(original);
-    if (match) {
-      const extracted = (match[2] || match[4])?.trim();
-      if (extracted && extracted.length > 1 && !/(cost|for|at|total|amount|restaurant|hotel)/i.test(extracted)) {
-        tripName = `${extracted.charAt(0).toUpperCase() + extracted.slice(1)} trip`;
-        break;
+  
+  // First priority: use context if available
+  if (context?.name) {
+    tripName = context.name;
+  } else {
+    // Fallback: extract from input text
+    const tripPatterns = [
+      /(trip to|traveling to|visiting)\s+([a-zA-Z\s]{2,15})/i,
+      /(my|our)\s+([a-zA-Z\s]{2,15})\s+(trip|vacation|holiday)/i,
+      /(vacation in|holiday in)\s+([a-zA-Z\s]{2,15})/i,
+    ];
+    
+    for (const pattern of tripPatterns) {
+      const match = pattern.exec(original);
+      if (match) {
+        const extracted = (match[2] || match[4])?.trim();
+        if (extracted && extracted.length > 1 && !/(cost|for|at|total|amount|restaurant|hotel)/i.test(extracted)) {
+          tripName = `${extracted.charAt(0).toUpperCase() + extracted.slice(1)} trip`;
+          break;
+        }
       }
     }
   }
@@ -64,12 +78,13 @@ export function enhancedExpenseParser(input: string): ParsedExpense {
     }
   }
 
-  // Enhanced quantity extraction
+  // Enhanced quantity extraction with context awareness
   const quantityPatterns = [
     /(\d+)\s*(x|times|units|tickets|flights|rooms|nights|people|persons)/i,
     /(two|three|four|five|six|seven|eight|nine|ten)\s*(x|times|units|tickets|flights|rooms|nights|people|persons)/i,
     /for\s+(\d+)\s*(people|persons|travelers)/i,
-    /(two|three|four|five|six|seven|eight|nine|ten)\s+(tickets|flights|rooms|nights)/i
+    /(two|three|four|five|six|seven|eight|nine|ten)\s+(tickets|flights|rooms|nights)/i,
+    /(for\s+)?(everyone|all|group|us)/i // Context-aware patterns
   ];
 
   let quantity: number | undefined;
@@ -77,7 +92,13 @@ export function enhancedExpenseParser(input: string): ParsedExpense {
     const match = pattern.exec(lower);
     if (match) {
       const qtyStr = match[1];
-      if (/^\d+$/.test(qtyStr)) {
+      // Handle context-aware keywords
+      if (match[0].includes('everyone') || match[0].includes('all') || match[0].includes('group') || match[0].includes('us')) {
+        if (context?.memberCount && context.memberCount > 0) {
+          quantity = context.memberCount;
+          break;
+        }
+      } else if (/^\d+$/.test(qtyStr)) {
         quantity = parseInt(qtyStr, 10);
       } else {
         // Convert word numbers to digits
@@ -87,7 +108,7 @@ export function enhancedExpenseParser(input: string): ParsedExpense {
         };
         quantity = wordToNum[qtyStr.toLowerCase()] || undefined;
       }
-      break;
+      if (quantity) break;
     }
   }
 

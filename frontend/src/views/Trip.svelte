@@ -594,7 +594,7 @@
 
   async function aiParse() {
     try {
-      const res = await api('/ai/parse', { method: 'POST', body: JSON.stringify({ input: aiInput }) });
+      const res = await api('/ai/parse', { method: 'POST', body: JSON.stringify({ input: aiInput, tripId }) });
       if (res.expense?.tripId === tripId) {
         upsertExpense(res.expense as Expense);
         showSuccess('Expense added from AI.');
