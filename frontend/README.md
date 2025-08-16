@@ -39,7 +39,7 @@ App will run at http://localhost:5173
 - Add members by username
 - Add expenses:
   - Manual: enter description and amount
-  - AI: describe in natural language (requires backend; OpenAI key optional)
+  - AI: describe in natural language (fully local parsing, no external APIs required)
 
 ## Notes
 

@@ -6,7 +6,6 @@
 ```
 DATABASE_URL="file:./dev.db"
 JWT_SECRET="replace_with_strong_secret"
-OPENAI_API_KEY=""          # optional; set to enable OpenAI parsing
 PORT=4000
 ```
 
@@ -77,11 +76,19 @@ Notes
 ## AI Parsing
 
 - Endpoint: `POST /ai/parse` { input }
-- If `OPENAI_API_KEY` is set, uses `gpt-4o-mini`; otherwise a naive parser runs.
+- Uses an enhanced rule-based parser that runs entirely locally (no external APIs required)
+- Supports multiple currencies (USD, EUR, GBP, etc.) and various input patterns
 - The endpoint will:
+  - Extract trip name, expense type, quantity, unit price, and total amount
   - Find or create a trip (if a trip name is present)
   - Create an expense on that trip
   - Create default equal splits among members (or creator if no members)
+
+**Supported patterns:**
+- "Flight to Tokyo for $450"
+- "Hotel for 3 nights at 120 EUR each"
+- "Two train tickets at 25 each for my Japan trip"
+- "€200 for shopping"
 
 Example input
 ```

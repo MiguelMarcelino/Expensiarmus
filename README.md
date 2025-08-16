@@ -7,7 +7,7 @@ A simple, clean expense tracking app inspired by Expensify with AI-powered natur
 - Frontend: Svelte + Vite + TypeScript, Tailwind CSS
 - Backend: Node.js (Express + TypeScript), Prisma ORM, SQLite
 - Auth: JWT (username + password)
-- AI: Optional OpenAI model for natural language expense parsing (falls back to a lightweight parser)
+- AI: Enhanced rule-based parser for natural language expense parsing (fully local, no external APIs)
 
 ## Features
 
@@ -38,7 +38,6 @@ cd frontend && npm i && cd ..
 ```
 DATABASE_URL="file:./dev.db"
 JWT_SECRET="dev_secret_change_me"
-OPENAI_API_KEY=""   # optional; set to use OpenAI parsing
 PORT=4000
 ```
 - Frontend `frontend/.env`:
@@ -113,8 +112,22 @@ Notes
 
 ## AI Parsing
 
-- If `OPENAI_API_KEY` is set, the backend uses `gpt-4o-mini` to extract: `tripName`, `expenseType`, `description`, `quantity`, `unitPrice`, `amount`.
-- If no API key is set or the call fails, a lightweight parser tries to infer quantity/price/amount/type from the text.
+The app uses an enhanced rule-based parser that runs entirely locally to extract expense information from natural language input. No external APIs or internet connection required.
+
+**What it extracts:**
+- `tripName`: Destination or trip name ("Japan trip", "Paris vacation")
+- `expenseType`: Category ("Flight", "Hotel", "Meal", "Transport", "Entertainment", "Shopping", "Other")
+- `quantity`: Number of items (2 flights, 3 nights, 5 tickets)
+- `unitPrice`: Price per item (150 each, 80 per night)
+- `amount`: Total amount (calculated or explicitly stated)
+
+**Supported input patterns:**
+- "Flight to Tokyo for $450"
+- "Hotel in Paris for 3 nights at 120 EUR each"
+- "Two train tickets at 25 each for my Japan trip"
+- "Museum tickets for 5 people at 15 each"
+- "€200 for shopping in Rome trip"
+- "My vacation in Bali - hotel cost 150 per night for 7 nights"
 
 Example input
 > I want to register an expense for my trip to Japan. I just bought two flights at 1500 each and need you to add that to my Japan trip.

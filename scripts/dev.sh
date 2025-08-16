@@ -18,7 +18,6 @@ ensure_backend_env() {
     cat > "${env_file}" <<'EOF'
 DATABASE_URL="file:./dev.db"
 JWT_SECRET="dev_secret_change_me"
-OPENAI_API_KEY=""
 PORT=4000
 EOF
     echo "Created backend/.env"
