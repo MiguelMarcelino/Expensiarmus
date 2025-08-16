@@ -259,15 +259,27 @@
   }
 
   function onPayerChange() {
-    // Store current payment mode to maintain it after recalculation
     const currentMode = paymentMode;
     
     // If we're in payer mode, just recalculate normally
     if (currentMode === 'payer') {
       recalcPayments();
-    } else {
-      // For other modes, we need to maintain the same payment distribution
-      // but adjust to ensure totals match
+      recalcSplits();
+    } else {      
+      // Update selectedSplitUserIdMap to match how splits are actually calculated:
+      // - New payer should NOT be in splits (they're paying upfront)
+      // - Everyone else should be in splits (including the old payer if different)
+      for (const u of payerOptions) {
+        if (u.id === payerUserId) {
+          // Current payer is not part of the split
+          selectedSplitUserIdMap[u.id] = false;
+          splitByUserId[u.id] = '0';
+          splitPctByUserId[u.id] = '0';
+        } else {
+          selectedSplitUserIdMap[u.id] = true;
+        }
+      }
+
       const total = Number(amount) || 0;
       const ids = payerOptions.map((u) => u.id);
       
@@ -286,15 +298,10 @@
       for (const id of ids) { 
         if (!paidCurrencyByUserId[id]) paidCurrencyByUserId[id] = expenseCurrency; 
       }
+      
+      // Recalculate splits to match the new selection
+      recalcSplits();
     }
-    
-    // When payer changes, preserve existing splits but ensure payer is not included in splits
-    // Only update the selectedSplitUserIdMap to exclude the new payer, keep all existing splits intact
-    selectedSplitUserIdMap[payerUserId] = false;
-    splitByUserId[payerUserId] = '0';
-    splitPctByUserId[payerUserId] = '0';
-    
-    // No need to recalculate splits - keep existing split amounts unchanged
   }
 
   function onToggleSplitUser(userId: string) {
