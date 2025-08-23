@@ -1,6 +1,6 @@
-# 🐳 Docker Deployment Guide for Expensiarmus
+# 🐳 Docker Deployment Guide for DivvyUp
 
-This guide explains how to run Expensiarmus using Docker and Docker Compose for both development and production environments.
+This guide explains how to run DivvyUp using Docker and Docker Compose for both development and production environments.
 
 ## 🚀 Quick Start
 
@@ -11,8 +11,8 @@ This guide explains how to run Expensiarmus using Docker and Docker Compose for 
 
 ### 1. Clone and Setup
 ```bash
-git clone https://github.com/yourusername/expensiarmus.git
-cd expensiarmus
+git clone https://github.com/yourusername/divvyup.git
+cd divvyup
 
 # Initial setup (creates directories and .env file)
 make setup
@@ -50,7 +50,7 @@ make prod
 ## 📁 Project Structure
 
 ```
-expensiarmus/
+divvyup/
 ├── docker-compose.yml          # Production configuration
 ├── docker-compose.dev.yml      # Development configuration
 ├── .env.example               # Environment template
@@ -208,13 +208,13 @@ For deploying to a server:
 
 1. **Copy files to server**:
    ```bash
-   rsync -av --exclude node_modules --exclude data* . user@server:/path/to/expensiarmus/
+   rsync -av --exclude node_modules --exclude data* . user@server:/path/to/divvyup/
    ```
 
 2. **Setup on server**:
    ```bash
    ssh user@server
-   cd /path/to/expensiarmus
+   cd /path/to/divvyup
    make setup
    # Edit .env with production values
    make prod

@@ -1,10 +1,10 @@
-# Expensiarmus Docker Management
+# DivvyUp Docker Management
 
 .PHONY: help build up down logs clean dev dev-down prod prod-down restart status setup
 
 # Default target
 help:
-	@echo "Expensiarmus Docker Commands:"
+	@echo "DivvyUp Docker Commands:"
 	@echo "  setup     - Initial setup (create directories and .env)"
 	@echo "  dev       - Start development environment"
 	@echo "  dev-down  - Stop development environment"
@@ -18,7 +18,7 @@ help:
 
 # Setup
 setup:
-	@echo "Setting up Expensiarmus..."
+	@echo "Setting up DivvyUp..."
 	@mkdir -p data data-dev
 	@if [ ! -f .env ]; then \
 		cp .env.example .env; \

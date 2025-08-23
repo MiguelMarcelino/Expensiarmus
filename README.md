@@ -1,4 +1,4 @@
-# Expensiarmus
+# DivvyUp
 
 A simple, clean expense tracking app with Rule-based expense parsing. Built with Svelte (Vite) on the frontend and Express + Prisma (SQLite) on the backend.
 
@@ -27,7 +27,7 @@ A simple, clean expense tracking app with Rule-based expense parsing. Built with
 1) Clone and install dependencies
 
 ```
-cd expensiarmus
+cd divvyup
 cd backend && npm i && cd ..
 cd frontend && npm i && cd ..
 ```
@@ -72,7 +72,7 @@ UI: http://localhost:5173
 ## Project Structure
 
 ```
-expensiarmus/
+divvyup/
   backend/
     prisma/
       schema.prisma

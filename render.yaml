@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: expensiarmus-backend
+    name: divvyup-backend
     env: node
     buildCommand: cd backend && npm ci && npm run build:production
     startCommand: cd backend && npm run prisma:migrate:production && npm start
@@ -9,16 +9,16 @@ services:
         value: production
       - key: DATABASE_URL
         fromDatabase:
-          name: expensiarmus-db
+          name: divvyup-db
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
       - key: PORT
         value: 10000
       - key: CORS_ORIGIN
-        value: https://expensiarmus.vercel.app
+        value: https://divvyup.vercel.app
 
 databases:
-  - name: expensiarmus-db
-    databaseName: expensiarmus
-    user: expensiarmus
+  - name: divvyup-db
+    databaseName: divvyup
+    user: divvyup

@@ -5,7 +5,7 @@ services:
     build:
       context: ./backend
       target: development
-    container_name: expensiarmus-backend-dev
+    container_name: divvyup-backend-dev
     restart: unless-stopped
     environment:
       - NODE_ENV=development
@@ -20,13 +20,13 @@ services:
       - "4000:4000"
     command: npm run dev
     networks:
-      - expensiarmus_network
+      - divvyup_network
 
   frontend:
     build:
       context: ./frontend
       target: development
-    container_name: expensiarmus-frontend-dev
+    container_name: divvyup-frontend-dev
     restart: unless-stopped
     environment:
       - VITE_API_BASE=http://localhost:4000
@@ -39,7 +39,7 @@ services:
     depends_on:
       - backend
     networks:
-      - expensiarmus_network
+      - divvyup_network
 
 volumes:
   backend_node_modules:
@@ -52,5 +52,5 @@ volumes:
       device: ./data-dev
 
 networks:
-  expensiarmus_network:
+  divvyup_network:
     driver: bridge

@@ -1,6 +1,6 @@
 # GitHub Actions Workflows
 
-This directory contains automated CI/CD workflows for the Expensiarmus application.
+This directory contains automated CI/CD workflows for the DivvyUp application.
 
 ## Workflows Overview
 
@@ -45,7 +45,7 @@ VERCEL_TOKEN          # Your Vercel API token
 VERCEL_ORG_ID         # Your Vercel organization ID  
 VERCEL_PROJECT_ID     # Your Vercel project ID
 VITE_API_BASE         # Backend URL (e.g., https://your-app.onrender.com)
-VERCEL_PROJECT_URL    # Your Vercel app URL (e.g., https://expensiarmus.vercel.app)
+VERCEL_PROJECT_URL    # Your Vercel app URL (e.g., https://divvyup.vercel.app)
 ```
 
 ### Render Secrets
@@ -101,12 +101,12 @@ Example values:
 VERCEL_TOKEN=your_vercel_token_here
 VERCEL_ORG_ID=team_XXXXX  
 VERCEL_PROJECT_ID=prj_XXXXX
-VITE_API_BASE=https://expensiarmus-backend.onrender.com
-VERCEL_PROJECT_URL=https://expensiarmus.vercel.app
+VITE_API_BASE=https://divvyup-backend.onrender.com
+VERCEL_PROJECT_URL=https://divvyup.vercel.app
 
 RENDER_API_KEY=rnd_XXXXX
 RENDER_SERVICE_ID=srv_XXXXX  
-RENDER_SERVICE_URL=https://expensiarmus-backend.onrender.com
+RENDER_SERVICE_URL=https://divvyup-backend.onrender.com
 ```
 
 ## Workflow Behavior

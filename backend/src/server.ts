@@ -16,7 +16,7 @@ const app = express();
 // Configure CORS for production
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
-    ? process.env.CORS_ORIGIN || 'https://expensiarmus.vercel.app'
+    ? process.env.CORS_ORIGIN || 'https://divvyup.vercel.app'
     : true, // Allow all origins in development
   credentials: true,
 };

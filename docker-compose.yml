@@ -5,7 +5,7 @@ services:
     build:
       context: ./backend
       target: production
-    container_name: expensiarmus-backend
+    container_name: divvyup-backend
     restart: unless-stopped
     environment:
       - NODE_ENV=production
@@ -23,13 +23,13 @@ services:
       retries: 3
       start_period: 40s
     networks:
-      - expensiarmus_network
+      - divvyup_network
 
   frontend:
     build:
       context: ./frontend
       target: production
-    container_name: expensiarmus-frontend
+    container_name: divvyup-frontend
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -43,7 +43,7 @@ services:
       retries: 3
       start_period: 10s
     networks:
-      - expensiarmus_network
+      - divvyup_network
 
 volumes:
   backend_data:
@@ -54,5 +54,5 @@ volumes:
       device: ./data
 
 networks:
-  expensiarmus_network:
+  divvyup_network:
     driver: bridge
